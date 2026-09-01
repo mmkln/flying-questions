@@ -5,14 +5,20 @@ import {
   restoreSession,
   signOut,
 } from './auth.js';
-import { loadQuestions } from './questions-api.js';
+import { hasAnchor } from './anchors.js';
+import { loadQuestions, setQuestionAnchor } from './questions-api.js';
 import { createQuestionDetailSheet } from './question-detail-sheet.js';
 import { renderQuestionsList } from './questions-list.js';
 import './styles.css';
 
 const app = document.querySelector('#app');
-const questionDetailSheet = createQuestionDetailSheet();
+const questionDetailSheet = createQuestionDetailSheet({
+  onToggleAnchor: toggleQuestionAnchor,
+});
 let disposeAccountMenu = () => {};
+let questionsMain = null;
+let questions = [];
+let activeFilter = 'all';
 
 function createAccountMenu(account, { sessionChecking = false } = {}) {
   const menu = document.createElement('div');
@@ -185,15 +191,65 @@ function renderLoading(main, label) {
   main.replaceChildren(status);
 }
 
+function replaceQuestion(updatedQuestion) {
+  questions = questions.map((question) => (
+    question.id === updatedQuestion.id ? updatedQuestion : question
+  ));
+}
+
+function renderQuestions() {
+  if (!questionsMain) return;
+
+  const anchoredCount = questions.filter(hasAnchor).length;
+  const visibleQuestions = activeFilter === 'anchored'
+    ? questions.filter(hasAnchor)
+    : questions;
+
+  renderQuestionsList(questionsMain, visibleQuestions, {
+    activeFilter,
+    allCount: questions.length,
+    anchoredCount,
+    onFilterChange(nextFilter) {
+      activeFilter = nextFilter;
+      renderQuestions();
+    },
+    onSelect(question) {
+      questionDetailSheet.open(question);
+    },
+  });
+}
+
+async function updateQuestionAnchor(question, shouldAnchor, retriesRemaining = 1) {
+  try {
+    return await setQuestionAnchor(
+      API_URL,
+      getAccessToken(),
+      question,
+      shouldAnchor,
+    );
+  } catch (error) {
+    if (error.status === 409 && error.current && retriesRemaining > 0) {
+      return updateQuestionAnchor(error.current, shouldAnchor, retriesRemaining - 1);
+    }
+    throw error;
+  }
+}
+
+async function toggleQuestionAnchor(question) {
+  const updatedQuestion = await updateQuestionAnchor(question, !hasAnchor(question));
+  replaceQuestion(updatedQuestion);
+  renderQuestions();
+  return updatedQuestion;
+}
+
 async function renderAuthenticated(account) {
   const main = createShell({ account });
+  questionsMain = main;
   renderLoading(main, 'Loading questions…');
 
   try {
-    const questions = await loadQuestions(API_URL, getAccessToken());
-    renderQuestionsList(main, questions, {
-      onSelect: (question) => questionDetailSheet.open(question),
-    });
+    questions = await loadQuestions(API_URL, getAccessToken());
+    renderQuestions();
   } catch (error) {
     const message = document.createElement('p');
     message.className = 'status-message is-error';
