@@ -6,8 +6,14 @@ import {
   signOut,
 } from './auth.js';
 import { hasAnchor } from './anchors.js';
-import { loadQuestions, setQuestionAnchor } from './questions-api.js';
+import {
+  createQuestion,
+  loadQuestions,
+  setQuestionAnchor,
+  updateQuestionText,
+} from './questions-api.js';
 import { createQuestionDetailSheet } from './question-detail-sheet.js';
+import { createQuestionEditor } from './question-editor.js';
 import { renderQuestionsList } from './questions-list.js';
 import {
   ThemeMode,
@@ -21,8 +27,22 @@ const THEME_STORAGE_KEY = 'flying-questions:theme:v1';
 const systemThemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
 const app = document.querySelector('#app');
 const themeButton = document.querySelector('#theme-button');
-const questionDetailSheet = createQuestionDetailSheet({
+let questionDetailSheet = null;
+const questionEditor = createQuestionEditor({
+  onSave: persistQuestion,
+  onSaved(question) {
+    questionDetailSheet?.open(question);
+  },
+  onCancel(session) {
+    if (session.mode === 'edit') questionDetailSheet?.open(session.question);
+  },
+});
+questionDetailSheet = createQuestionDetailSheet({
   onToggleAnchor: toggleQuestionAnchor,
+  onEdit(question) {
+    questionDetailSheet.close();
+    questionEditor.openForEdit(question);
+  },
 });
 let disposeAccountMenu = () => {};
 let questionsMain = null;
@@ -216,9 +236,30 @@ function createShell({ account = null, sessionChecking = false } = {}) {
   main.className = 'app-main';
 
   shell.append(title, main);
-  app.replaceChildren(shell, accountMenu.menu);
+  const elements = [shell, accountMenu.menu];
+  if (account) elements.push(createNewQuestionButton());
+  app.replaceChildren(...elements);
   disposeAccountMenu = accountMenu.dispose;
   return main;
+}
+
+function createNewQuestionButton() {
+  const button = document.createElement('button');
+  const plus = document.createElement('span');
+  const label = document.createElement('span');
+
+  button.className = 'new-question-button';
+  button.type = 'button';
+  button.setAttribute('aria-label', 'New question');
+  plus.className = 'new-question-plus';
+  plus.textContent = '+';
+  plus.setAttribute('aria-hidden', 'true');
+  label.className = 'new-question-label';
+  label.textContent = 'New question';
+  button.append(plus, label);
+  button.addEventListener('click', () => questionEditor.openForCreate());
+
+  return button;
 }
 
 function renderSignedOut(message = 'Sign in to view your questions.') {
@@ -235,9 +276,14 @@ function renderLoading(main, label) {
 }
 
 function replaceQuestion(updatedQuestion) {
-  questions = questions.map((question) => (
-    question.id === updatedQuestion.id ? updatedQuestion : question
-  ));
+  let replacement = updatedQuestion;
+  questions = questions.map((question) => {
+    if (question.id !== updatedQuestion.id) return question;
+
+    replacement = { ...question, ...updatedQuestion };
+    return replacement;
+  });
+  return replacement;
 }
 
 function renderQuestions() {
@@ -280,9 +326,30 @@ async function updateQuestionAnchor(question, shouldAnchor, retriesRemaining = 1
 
 async function toggleQuestionAnchor(question) {
   const updatedQuestion = await updateQuestionAnchor(question, !hasAnchor(question));
-  replaceQuestion(updatedQuestion);
+  const mergedQuestion = replaceQuestion(updatedQuestion);
   renderQuestions();
-  return updatedQuestion;
+  return mergedQuestion;
+}
+
+async function persistQuestion(draft) {
+  const savedQuestion = draft.mode === 'create'
+    ? await createQuestion(API_URL, getAccessToken(), draft)
+    : await updateQuestionText(
+      API_URL,
+      getAccessToken(),
+      draft.question,
+      draft.text,
+    );
+
+  if (draft.mode === 'create') {
+    questions = [savedQuestion, ...questions];
+    renderQuestions();
+    return savedQuestion;
+  }
+
+  const mergedQuestion = replaceQuestion(savedQuestion);
+  renderQuestions();
+  return mergedQuestion;
 }
 
 async function renderAuthenticated(account) {

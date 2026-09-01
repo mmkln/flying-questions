@@ -10,6 +10,20 @@ export function getThoughtSyncUrl(apiUrl, thoughtId) {
   return `${String(apiUrl).replace(/\/$/, '')}/thoughts/${thoughtId}/sync/`;
 }
 
+async function parseThoughtSyncResponse(response, fallbackMessage) {
+  const payload = await response.json().catch(() => null);
+
+  if (response.ok && payload && typeof payload.id === 'string') {
+    return payload;
+  }
+
+  const error = new Error(
+    typeof payload?.detail === 'string' ? payload.detail : fallbackMessage,
+  );
+  error.status = response.status;
+  error.current = payload?.current ?? null;
+  throw error;
+}
 export async function loadQuestions(apiUrl, accessToken) {
   const response = await fetch(getQuestionsUrl(apiUrl), {
     headers: {
@@ -33,6 +47,51 @@ export async function loadQuestions(apiUrl, accessToken) {
   return payload;
 }
 
+export async function createQuestion(
+  apiUrl,
+  accessToken,
+  { draftId, text, createdAt },
+) {
+  const response = await fetch(getThoughtSyncUrl(apiUrl, draftId), {
+    method: 'PUT',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      text,
+      color: 'purple',
+      is_pinned: false,
+      created_at: createdAt,
+      meta: {
+        knowledge: {
+          version: 1,
+          kind: 'question',
+        },
+      },
+    }),
+  });
+
+  return parseThoughtSyncResponse(response, 'Could not create the question.');
+}
+
+export async function updateQuestionText(apiUrl, accessToken, question, text) {
+  const response = await fetch(getThoughtSyncUrl(apiUrl, question.id), {
+    method: 'PATCH',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      base_revision: question.revision,
+      text,
+    }),
+  });
+
+  return parseThoughtSyncResponse(response, 'Could not update the question.');
+}
 export async function setQuestionAnchor(
   apiUrl,
   accessToken,
@@ -59,18 +118,5 @@ export async function setQuestionAnchor(
       },
     }),
   });
-  const payload = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    const error = new Error(
-      typeof payload?.detail === 'string'
-        ? payload.detail
-        : 'Could not update the anchor.',
-    );
-    error.status = response.status;
-    error.current = payload?.current ?? null;
-    throw error;
-  }
-
-  return payload;
+  return parseThoughtSyncResponse(response, 'Could not update the anchor.');
 }

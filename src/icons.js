@@ -37,3 +37,10 @@ export function createQuestionIcon() {
     ['path', { d: 'M12 18.5h.01' }],
   ]);
 }
+
+export function createEditIcon() {
+  return createOutlineIcon([
+    ['path', { d: 'm4 20 4.1-1 10.5-10.5a2.1 2.1 0 0 0-3-3L5.1 16 4 20Z' }],
+    ['path', { d: 'm13.8 7.3 3 3' }],
+  ]);
+}

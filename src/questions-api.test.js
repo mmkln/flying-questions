@@ -3,9 +3,11 @@ import test from 'node:test';
 
 import {
   QUESTIONS_PATH,
+  createQuestion,
   getQuestionsUrl,
   getThoughtSyncUrl,
   setQuestionAnchor,
+  updateQuestionText,
 } from './questions-api.js';
 
 test('builds the server-filtered questions endpoint', () => {
@@ -23,6 +25,98 @@ test('builds the revision-safe thought sync endpoint', () => {
   );
 });
 
+test('creates a question through an idempotent sync PUT', async (t) => {
+  const originalFetch = globalThis.fetch;
+  let request;
+  globalThis.fetch = async (url, options) => {
+    request = { url, options };
+    return {
+      ok: true,
+      status: 201,
+      json: async () => ({ id: 'draft-uuid', revision: 1 }),
+    };
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  await createQuestion(
+    'http://127.0.0.1:8001/api/v1',
+    'access-token',
+    {
+      draftId: 'draft-uuid',
+      text: 'How should I prioritize my questions?',
+      createdAt: '2026-09-02T12:00:00.000Z',
+    },
+  );
+
+  assert.equal(request.url, 'http://127.0.0.1:8001/api/v1/thoughts/draft-uuid/sync/');
+  assert.equal(request.options.method, 'PUT');
+  assert.deepEqual(JSON.parse(request.options.body), {
+    text: 'How should I prioritize my questions?',
+    color: 'purple',
+    is_pinned: false,
+    created_at: '2026-09-02T12:00:00.000Z',
+    meta: {
+      knowledge: {
+        version: 1,
+        kind: 'question',
+      },
+    },
+  });
+});
+
+test('patches only text when editing a question', async (t) => {
+  const originalFetch = globalThis.fetch;
+  let request;
+  globalThis.fetch = async (url, options) => {
+    request = { url, options };
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ id: 'question-uuid', revision: 5 }),
+    };
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  await updateQuestionText(
+    'http://127.0.0.1:8001/api/v1',
+    'access-token',
+    { id: 'question-uuid', revision: 4, meta: { navigation: { anchor: {} } } },
+    'What should I do next?',
+  );
+
+  assert.equal(request.url, 'http://127.0.0.1:8001/api/v1/thoughts/question-uuid/sync/');
+  assert.equal(request.options.method, 'PATCH');
+  assert.deepEqual(JSON.parse(request.options.body), {
+    base_revision: 4,
+    text: 'What should I do next?',
+  });
+});
+
+test('keeps the current server version on a conflicting text update', async (t) => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: false,
+    status: 409,
+    json: async () => ({
+      detail: 'This question was updated elsewhere.',
+      current: { id: 'question-uuid', revision: 5, text: 'Current text' },
+    }),
+  });
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  await assert.rejects(
+    updateQuestionText(
+      'http://127.0.0.1:8001/api/v1',
+      'access-token',
+      { id: 'question-uuid', revision: 4 },
+      'Local text',
+    ),
+    (error) => (
+      error.status === 409
+      && error.current?.text === 'Current text'
+    ),
+  );
+});
 test('patches only navigation when anchoring a question', async (t) => {
   const originalFetch = globalThis.fetch;
   let request;

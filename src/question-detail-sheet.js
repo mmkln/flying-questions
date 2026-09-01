@@ -1,8 +1,12 @@
 import { hasAnchor } from './anchors.js';
-import { createAnchorIcon, createQuestionIcon } from './icons.js';
+import {
+  createAnchorIcon,
+  createEditIcon,
+  createQuestionIcon,
+} from './icons.js';
 import { formatQuestionDate } from './questions-list.js';
 
-export function createQuestionDetailSheet({ onToggleAnchor } = {}) {
+export function createQuestionDetailSheet({ onToggleAnchor, onEdit } = {}) {
   const dialog = document.createElement('dialog');
   const form = document.createElement('form');
   const header = document.createElement('header');
@@ -10,6 +14,7 @@ export function createQuestionDetailSheet({ onToggleAnchor } = {}) {
   const title = document.createElement('h2');
   const headerActions = document.createElement('div');
   const anchorButton = document.createElement('button');
+  const editButton = document.createElement('button');
   const text = document.createElement('p');
   const footer = document.createElement('footer');
   const date = document.createElement('time');
@@ -40,6 +45,12 @@ export function createQuestionDetailSheet({ onToggleAnchor } = {}) {
   anchorButton.setAttribute('aria-pressed', 'false');
   anchorButton.append(createAnchorIcon());
 
+  editButton.className = 'question-detail-edit';
+  editButton.type = 'button';
+  editButton.setAttribute('aria-label', 'Edit question');
+  editButton.title = 'Edit question';
+  editButton.append(createEditIcon());
+
   text.className = 'question-detail-text';
   footer.className = 'question-detail-footer';
   date.className = 'question-detail-date';
@@ -52,7 +63,7 @@ export function createQuestionDetailSheet({ onToggleAnchor } = {}) {
   done.type = 'submit';
   done.textContent = 'Done';
 
-  headerActions.append(anchorButton);
+  headerActions.append(anchorButton, editButton);
   header.append(icon, title, headerActions);
   actions.append(done);
   footer.append(date, actions);
@@ -74,6 +85,7 @@ export function createQuestionDetailSheet({ onToggleAnchor } = {}) {
       anchored ? 'Remove from anchors' : 'Add to anchors',
     );
     anchorButton.title = anchored ? 'Remove from anchors' : 'Add to anchors';
+    editButton.hidden = !onEdit;
   }
 
   anchorButton.addEventListener('click', async () => {
@@ -95,6 +107,11 @@ export function createQuestionDetailSheet({ onToggleAnchor } = {}) {
     }
   });
 
+  editButton.addEventListener('click', () => {
+    if (!currentQuestion || !onEdit) return;
+    onEdit(currentQuestion);
+  });
+
   dialog.addEventListener('cancel', (event) => {
     event.preventDefault();
     dialog.close();
@@ -108,6 +125,9 @@ export function createQuestionDetailSheet({ onToggleAnchor } = {}) {
       if (!dialog.open) dialog.showModal();
 
       requestAnimationFrame(() => done.focus());
+    },
+    close() {
+      if (dialog.open) dialog.close();
     },
   };
 }
