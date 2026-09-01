@@ -9,9 +9,18 @@ import { hasAnchor } from './anchors.js';
 import { loadQuestions, setQuestionAnchor } from './questions-api.js';
 import { createQuestionDetailSheet } from './question-detail-sheet.js';
 import { renderQuestionsList } from './questions-list.js';
+import {
+  ThemeMode,
+  nextThemeMode,
+  normalizeThemeMode,
+  resolveTheme,
+} from './theme.js';
 import './styles.css';
 
+const THEME_STORAGE_KEY = 'flying-questions:theme:v1';
+const systemThemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
 const app = document.querySelector('#app');
+const themeButton = document.querySelector('#theme-button');
 const questionDetailSheet = createQuestionDetailSheet({
   onToggleAnchor: toggleQuestionAnchor,
 });
@@ -19,6 +28,40 @@ let disposeAccountMenu = () => {};
 let questionsMain = null;
 let questions = [];
 let activeFilter = 'all';
+let themeMode = normalizeThemeMode(document.documentElement.dataset.themeMode);
+
+function renderThemeButton() {
+  const labels = {
+    [ThemeMode.SYSTEM]: 'System',
+    [ThemeMode.LIGHT]: 'Light',
+    [ThemeMode.DARK]: 'Dark',
+  };
+  const label = labels[themeMode];
+
+  themeButton.dataset.mode = themeMode;
+  themeButton.title = `Appearance: ${label}`;
+  themeButton.setAttribute('aria-label', `Appearance: ${label}`);
+}
+
+function applyTheme() {
+  const resolvedTheme = resolveTheme(themeMode, systemThemeQuery.matches);
+
+  document.documentElement.dataset.theme = resolvedTheme;
+  document.documentElement.dataset.themeMode = themeMode;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute(
+    'content',
+    resolvedTheme === ThemeMode.DARK ? '#0e0d14' : '#f7f6fb',
+  );
+  renderThemeButton();
+}
+
+function storeThemeMode() {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+  } catch {
+    // The selected theme still applies for this session when storage is disabled.
+  }
+}
 
 function createAccountMenu(account, { sessionChecking = false } = {}) {
   const menu = document.createElement('div');
@@ -275,4 +318,15 @@ async function bootstrap() {
   }
 }
 
+themeButton.addEventListener('click', () => {
+  themeMode = nextThemeMode(themeMode);
+  storeThemeMode();
+  applyTheme();
+});
+
+systemThemeQuery.addEventListener('change', () => {
+  if (themeMode === ThemeMode.SYSTEM) applyTheme();
+});
+
+applyTheme();
 void bootstrap();
