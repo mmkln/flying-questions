@@ -2,49 +2,61 @@ import { formatQuestionDate } from './questions-list.js';
 
 export function createQuestionDetailSheet() {
   const dialog = document.createElement('dialog');
-  const content = document.createElement('article');
-  const title = document.createElement('h2');
+  const form = document.createElement('form');
   const header = document.createElement('header');
-  const date = document.createElement('time');
-  const close = document.createElement('button');
+  const icon = document.createElement('span');
+  const title = document.createElement('h2');
   const text = document.createElement('p');
+  const footer = document.createElement('footer');
+  const date = document.createElement('time');
+  const actions = document.createElement('div');
+  const done = document.createElement('button');
 
-  dialog.className = 'question-detail-sheet';
+  dialog.className = 'question-detail-dialog';
   dialog.setAttribute('aria-labelledby', 'question-detail-title');
 
-  content.className = 'question-detail-content';
+  form.className = 'question-detail-form';
+  form.method = 'dialog';
+  header.className = 'question-detail-header';
+
+  icon.className = 'question-icon question-detail-icon';
+  icon.textContent = '?';
+  icon.setAttribute('aria-hidden', 'true');
+
   title.className = 'sr-only';
   title.id = 'question-detail-title';
   title.textContent = 'Question details';
-  header.className = 'question-detail-header';
-  date.className = 'question-detail-date';
-
-  close.className = 'question-detail-close';
-  close.type = 'button';
-  close.textContent = '×';
-  close.setAttribute('aria-label', 'Close question details');
-  close.addEventListener('click', () => dialog.close());
 
   text.className = 'question-detail-text';
+  footer.className = 'question-detail-footer';
+  date.className = 'question-detail-date';
+  actions.className = 'question-detail-actions';
 
-  header.append(date, close);
-  content.append(title, header, text);
-  dialog.append(content);
+  done.className = 'question-detail-primary';
+  done.type = 'submit';
+  done.textContent = 'Done';
+
+  header.append(icon, title);
+  actions.append(done);
+  footer.append(date, actions);
+  form.append(header, text, footer);
+  dialog.append(form);
   document.body.append(dialog);
 
-  dialog.addEventListener('click', (event) => {
-    if (event.target === dialog) dialog.close();
+  dialog.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    dialog.close();
   });
 
   return {
     open(question) {
+      text.textContent = question.text;
       date.dateTime = question.created_at;
       date.textContent = formatQuestionDate(question.created_at);
-      text.textContent = question.text;
 
-      if (dialog.open) dialog.close();
-      dialog.showModal();
-      close.focus();
+      if (!dialog.open) dialog.showModal();
+
+      requestAnimationFrame(() => done.focus());
     },
   };
 }
