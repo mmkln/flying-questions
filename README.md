@@ -12,3 +12,8 @@ It uses the shared Flying Words Django API and SSO account system; questions are
 3. Run `npm run dev`.
 
 The app starts at `http://127.0.0.1:5174/`. Its return URL must be present in the backend's `SSO_ALLOWED_FRONTEND_URLS` setting.
+
+## Deployment
+
+`npm run deploy` runs tests, builds the Vite app, and publishes `dist` to the `gh-pages` branch.
+In GitHub **Settings → Pages**, choose **Deploy from a branch**, then select `gh-pages` and `/ (root)`.
