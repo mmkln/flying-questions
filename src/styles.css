@@ -52,6 +52,8 @@ h1, h2, p { margin: 0; }
 
 .account-trigger.is-authenticated { padding: 3px; }
 .account-trigger:hover { border-color: rgba(107, 79, 204, .36); color: #6348bd; background: rgba(255, 255, 255, .92); }
+.account-trigger:disabled { cursor: progress; color: #8a8497; }
+.account-trigger:disabled:hover { border-color: rgba(86, 67, 143, .16); color: #8a8497; background: rgba(255, 255, 255, .72); }
 .account-trigger:focus-visible { outline: 3px solid rgba(126, 95, 215, .2); outline-offset: 2px; }
 .account-avatar {
   display: grid;

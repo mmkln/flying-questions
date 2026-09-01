@@ -12,7 +12,7 @@ import './styles.css';
 const app = document.querySelector('#app');
 let disposeAccountMenu = () => {};
 
-function createAccountMenu(account) {
+function createAccountMenu(account, { sessionChecking = false } = {}) {
   const menu = document.createElement('div');
   const trigger = document.createElement('button');
   const avatar = document.createElement('span');
@@ -53,7 +53,14 @@ function createAccountMenu(account) {
     if (restoreFocus) trigger.focus();
   }
 
-  if (!account) {
+  if (sessionChecking) {
+    label.textContent = 'Checking…';
+    trigger.title = 'Checking your sign-in session';
+    trigger.disabled = true;
+    trigger.setAttribute('aria-busy', 'true');
+    avatar.hidden = true;
+    chevron.hidden = true;
+  } else if (!account) {
     label.textContent = 'Sign in';
     trigger.title = 'Sign in';
     avatar.hidden = true;
@@ -145,12 +152,12 @@ function createAccountMenu(account) {
   };
 }
 
-function createShell({ account = null } = {}) {
+function createShell({ account = null, sessionChecking = false } = {}) {
   disposeAccountMenu();
   const shell = document.createElement('div');
   const title = document.createElement('h1');
   const main = document.createElement('main');
-  const accountMenu = createAccountMenu(account);
+  const accountMenu = createAccountMenu(account, { sessionChecking });
 
   shell.className = 'app-shell';
   title.className = 'sr-only';
@@ -192,7 +199,7 @@ async function renderAuthenticated(account) {
 }
 
 async function bootstrap() {
-  const main = createShell();
+  const main = createShell({ sessionChecking: true });
   renderLoading(main, 'Checking your session…');
 
   try {
