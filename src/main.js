@@ -10,58 +10,162 @@ import { renderQuestionsList } from './questions-list.js';
 import './styles.css';
 
 const app = document.querySelector('#app');
+let disposeAccountMenu = () => {};
 
-function createShell({ account = null } = {}) {
-  const shell = document.createElement('div');
-  const header = document.createElement('header');
-  const title = document.createElement('h1');
-  const actions = document.createElement('div');
-  const main = document.createElement('main');
+function createAccountMenu(account) {
+  const menu = document.createElement('div');
+  const trigger = document.createElement('button');
+  const avatar = document.createElement('span');
+  const label = document.createElement('span');
+  const chevron = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  const chevronPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  const popover = document.createElement('div');
+  let isOpen = false;
 
-  shell.className = 'app-shell';
-  header.className = 'app-header';
-  title.textContent = 'Questions';
-  actions.className = 'app-actions';
-  main.className = 'app-main';
+  menu.className = 'account-menu';
+  trigger.className = 'account-trigger';
+  trigger.type = 'button';
+  trigger.setAttribute('aria-haspopup', 'menu');
+  trigger.setAttribute('aria-expanded', 'false');
 
-  if (account) {
-    const email = document.createElement('span');
+  avatar.className = 'account-avatar';
+  avatar.setAttribute('aria-hidden', 'true');
+  label.className = 'account-trigger-label';
+
+  chevron.classList.add('account-chevron');
+  chevron.setAttribute('viewBox', '0 0 16 16');
+  chevron.setAttribute('fill', 'none');
+  chevron.setAttribute('stroke', 'currentColor');
+  chevron.setAttribute('stroke-width', '1.7');
+  chevron.setAttribute('aria-hidden', 'true');
+  chevronPath.setAttribute('d', 'm4 6 4 4 4-4');
+  chevron.append(chevronPath);
+
+  popover.className = 'account-popover';
+  popover.setAttribute('role', 'menu');
+  popover.hidden = true;
+
+  function closeMenu({ restoreFocus = false } = {}) {
+    if (!isOpen) return;
+    isOpen = false;
+    popover.hidden = true;
+    trigger.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) trigger.focus();
+  }
+
+  if (!account) {
+    label.textContent = 'Sign in';
+    trigger.title = 'Sign in';
+    avatar.hidden = true;
+    chevron.hidden = true;
+    trigger.addEventListener('click', beginLogin);
+  } else {
+    const initial = account.email.trim().charAt(0).toUpperCase() || 'M';
+    const identity = document.createElement('div');
+    const menuAvatar = document.createElement('span');
+    const copy = document.createElement('span');
+    const email = document.createElement('strong');
+    const provider = document.createElement('small');
+    const firstDivider = document.createElement('div');
+    const switchAccountButton = document.createElement('button');
+    const secondDivider = document.createElement('div');
     const signOutButton = document.createElement('button');
-    email.className = 'account-email';
+
+    trigger.classList.add('is-authenticated');
+    trigger.title = `Account: ${account.email}`;
+    avatar.textContent = initial;
+    label.hidden = true;
+
+    identity.className = 'account-popover-identity';
+    menuAvatar.className = 'account-avatar account-menu-avatar';
+    menuAvatar.textContent = initial;
+    menuAvatar.setAttribute('aria-hidden', 'true');
+    copy.className = 'account-popover-copy';
     email.textContent = account.email;
-    signOutButton.className = 'text-button';
+    provider.textContent = 'Majom ID';
+    copy.append(email, provider);
+    identity.append(menuAvatar, copy);
+
+    firstDivider.className = 'account-menu-divider';
+    firstDivider.setAttribute('role', 'separator');
+    switchAccountButton.type = 'button';
+    switchAccountButton.setAttribute('role', 'menuitem');
+    switchAccountButton.textContent = 'Switch Account…';
+    secondDivider.className = 'account-menu-divider';
+    secondDivider.setAttribute('role', 'separator');
     signOutButton.type = 'button';
-    signOutButton.textContent = 'Sign out';
+    signOutButton.className = 'account-destructive';
+    signOutButton.setAttribute('role', 'menuitem');
+    signOutButton.textContent = 'Sign Out';
+    popover.append(
+      identity,
+      firstDivider,
+      switchAccountButton,
+      secondDivider,
+      signOutButton,
+    );
+
+    trigger.addEventListener('click', () => {
+      isOpen = !isOpen;
+      popover.hidden = !isOpen;
+      trigger.setAttribute('aria-expanded', String(isOpen));
+      if (isOpen) switchAccountButton.focus();
+    });
+    switchAccountButton.addEventListener('click', () => {
+      closeMenu();
+      beginLogin({ switchAccount: true });
+    });
     signOutButton.addEventListener('click', async () => {
+      closeMenu();
       await signOut();
       renderSignedOut();
     });
-    actions.append(email, signOutButton);
   }
 
-  header.append(title, actions);
-  shell.append(header, main);
-  app.replaceChildren(shell);
+  const handlePointerDown = (event) => {
+    if (isOpen && !menu.contains(event.target)) closeMenu();
+  };
+  const handleKeyDown = (event) => {
+    if (event.key !== 'Escape' || !isOpen) return;
+    event.preventDefault();
+    closeMenu({ restoreFocus: true });
+  };
+
+  document.addEventListener('pointerdown', handlePointerDown);
+  document.addEventListener('keydown', handleKeyDown);
+  trigger.append(avatar, label, chevron);
+  menu.append(trigger, popover);
+
+  return {
+    menu,
+    dispose() {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    },
+  };
+}
+
+function createShell({ account = null } = {}) {
+  disposeAccountMenu();
+  const shell = document.createElement('div');
+  const title = document.createElement('h1');
+  const main = document.createElement('main');
+  const accountMenu = createAccountMenu(account);
+
+  shell.className = 'app-shell';
+  title.className = 'sr-only';
+  title.textContent = 'Questions';
+  main.className = 'app-main';
+
+  shell.append(title, main);
+  app.replaceChildren(shell, accountMenu.menu);
+  disposeAccountMenu = accountMenu.dispose;
   return main;
 }
 
 function renderSignedOut(message = 'Sign in to view your questions.') {
   const main = createShell();
-  const card = document.createElement('section');
-  const heading = document.createElement('h2');
-  const description = document.createElement('p');
-  const button = document.createElement('button');
-
-  card.className = 'sign-in-card';
-  heading.textContent = 'Your questions, in one place.';
-  description.textContent = message;
-  button.className = 'primary-button';
-  button.type = 'button';
-  button.textContent = 'Sign in';
-  button.addEventListener('click', beginLogin);
-
-  card.append(heading, description, button);
-  main.append(card);
+  renderLoading(main, message);
 }
 
 function renderLoading(main, label) {

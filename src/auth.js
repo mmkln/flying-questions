@@ -148,8 +148,9 @@ async function loadCurrentAccount() {
   return nextAccount;
 }
 
-export function beginLogin() {
+export function beginLogin({ switchAccount = false } = {}) {
   const query = new URLSearchParams({ return_to: SSO_RETURN_URL });
+  if (switchAccount) query.set('switch', '1');
   window.location.assign(`${API_URL}/auth/sso/login/?${query}`);
 }
 

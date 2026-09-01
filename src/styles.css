@@ -21,52 +21,88 @@ button { font: inherit; }
 .app-shell {
   width: min(100% - 32px, 760px);
   margin: 0 auto;
-  padding: 52px 0 72px;
-}
-
-.app-header {
-  display: flex;
-  gap: 20px;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 28px;
+  padding: 96px 0 72px;
 }
 
 h1, h2, p { margin: 0; }
 
-h1 {
-  font-size: clamp(28px, 4vw, 36px);
-  font-weight: 680;
-  letter-spacing: -.045em;
+.account-menu {
+  position: fixed;
+  z-index: 30;
+  top: 18px;
+  right: 20px;
 }
 
-.app-actions {
+.account-trigger {
   display: flex;
-  gap: 13px;
+  min-height: 38px;
   align-items: center;
-  min-width: 0;
+  gap: 7px;
+  padding: 8px 12px;
+  border: 1px solid rgba(86, 67, 143, .18);
+  border-radius: 999px;
+  color: #625c7d;
+  cursor: pointer;
+  background: rgba(255, 255, 255, .72);
+  box-shadow: 0 5px 16px rgba(61, 43, 111, .07), inset 0 1px rgba(255,255,255,.8);
+  backdrop-filter: blur(10px);
+  font-size: 12px;
+  transition: border-color .18s ease, color .18s ease, background .18s ease;
 }
 
-.account-email {
-  max-width: 210px;
-  overflow: hidden;
-  color: #777087;
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.account-trigger.is-authenticated { padding: 3px; }
+.account-trigger:hover { border-color: rgba(107, 79, 204, .36); color: #6348bd; background: rgba(255, 255, 255, .92); }
+.account-trigger:focus-visible { outline: 3px solid rgba(126, 95, 215, .2); outline-offset: 2px; }
+.account-avatar {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(145deg, #7560cb, #40365f);
+  font-size: 12px;
+  font-weight: 750;
 }
-
-.text-button {
-  padding: 5px 0;
+.account-avatar[hidden], .account-chevron[hidden] { display: none; }
+.account-chevron { width: 14px; height: 14px; margin-right: 3px; }
+.account-popover {
+  position: absolute;
+  top: calc(100% + 9px);
+  right: 0;
+  width: min(280px, calc(100vw - 24px));
+  padding: 8px;
+  border: 1px solid rgba(86, 67, 143, .16);
+  border-radius: 16px;
+  color: #39334e;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 22px 55px rgba(45, 31, 83, .18);
+  backdrop-filter: blur(18px);
+}
+.account-popover[hidden] { display: none; }
+.account-popover-identity { display: flex; align-items: center; gap: 11px; min-width: 0; padding: 9px 10px 11px; }
+.account-menu-avatar { width: 38px; height: 38px; flex-basis: 38px; font-size: 14px; }
+.account-popover-copy { display: grid; min-width: 0; gap: 2px; }
+.account-popover-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.account-popover-copy small { color: #8d879a; font-size: 11px; }
+.account-menu-divider { height: 1px; margin: 4px 3px; background: rgba(86, 67, 143, .12); }
+.account-popover button {
+  width: 100%;
+  padding: 10px 11px;
   border: 0;
-  color: #6753b8;
+  border-radius: 10px;
+  color: #625c7d;
   cursor: pointer;
   background: transparent;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
 }
+.account-popover button:hover, .account-popover button:focus-visible { color: #39334e; background: rgba(92, 69, 174, .08); outline: 0; }
+.account-popover .account-destructive { color: #b64655; }
+.account-popover .account-destructive:hover, .account-popover .account-destructive:focus-visible { color: #a23849; background: rgba(182, 70, 85, .09); }
 
-.text-button:hover { color: #4e3c9a; }
-
-.sign-in-card,
 .questions-list,
 .status-message {
   border: 1px solid rgba(86, 67, 143, .14);
@@ -75,35 +111,8 @@ h1 {
   box-shadow: 0 18px 48px rgba(61, 43, 111, .08);
 }
 
-.sign-in-card {
-  display: grid;
-  gap: 13px;
-  max-width: 430px;
-  padding: 28px;
-}
-
-.sign-in-card h2 {
-  font-size: 22px;
-  letter-spacing: -.03em;
-}
-
-.sign-in-card p,
 .empty-state,
 .status-message { color: #777087; }
-
-.primary-button {
-  width: fit-content;
-  margin-top: 6px;
-  padding: 10px 15px;
-  border: 0;
-  border-radius: 10px;
-  color: white;
-  cursor: pointer;
-  background: #7055c5;
-  box-shadow: 0 7px 16px rgba(92, 69, 174, .24);
-}
-
-.primary-button:hover { background: #6046b5; }
 
 .questions-list { overflow: hidden; }
 
@@ -148,9 +157,20 @@ h1 {
 .status-message { padding: 28px; text-align: center; }
 .status-message.is-error { color: #af3d59; }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 @media (max-width: 560px) {
-  .app-shell { width: min(100% - 24px, 760px); padding-top: 28px; }
-  .app-header { margin-bottom: 22px; }
-  .account-email { display: none; }
+  .app-shell { width: min(100% - 24px, 760px); padding-top: 74px; }
+  .account-menu { top: 12px; right: 12px; }
   .question-row { padding: 12px 14px; }
 }
