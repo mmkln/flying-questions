@@ -175,6 +175,8 @@ h1, h2, p { margin: 0; }
   font-weight: 700;
 }
 
+.question-icon svg { width: 17px; height: 17px; }
+
 .question-text {
   display: -webkit-box;
   overflow: hidden;

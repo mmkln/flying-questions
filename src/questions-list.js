@@ -1,5 +1,5 @@
 import { hasAnchor } from './anchors.js';
-import { createAnchorIcon } from './icons.js';
+import { createAnchorIcon, createQuestionIcon } from './icons.js';
 
 export function formatQuestionDate(value) {
   const date = new Date(value);
@@ -25,8 +25,8 @@ function createQuestionRow(question, { onSelect } = {}) {
   button.type = 'button';
   button.addEventListener('click', () => onSelect?.(question));
   icon.className = 'question-icon';
-  icon.textContent = '?';
   icon.setAttribute('aria-hidden', 'true');
+  icon.append(createQuestionIcon());
 
   content.className = 'question-content';
   text.className = 'question-text';

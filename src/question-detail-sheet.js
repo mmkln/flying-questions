@@ -1,5 +1,5 @@
 import { hasAnchor } from './anchors.js';
-import { createAnchorIcon } from './icons.js';
+import { createAnchorIcon, createQuestionIcon } from './icons.js';
 import { formatQuestionDate } from './questions-list.js';
 
 export function createQuestionDetailSheet({ onToggleAnchor } = {}) {
@@ -28,8 +28,8 @@ export function createQuestionDetailSheet({ onToggleAnchor } = {}) {
   headerActions.className = 'question-detail-header-actions';
 
   icon.className = 'question-icon question-detail-icon';
-  icon.textContent = '?';
   icon.setAttribute('aria-hidden', 'true');
+  icon.append(createQuestionIcon());
 
   title.className = 'sr-only';
   title.id = 'question-detail-title';
