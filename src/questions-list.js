@@ -1,4 +1,4 @@
-function formatQuestionDate(value) {
+export function formatQuestionDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
 
@@ -8,14 +8,18 @@ function formatQuestionDate(value) {
   }).format(date);
 }
 
-function createQuestionRow(question) {
+function createQuestionRow(question, { onSelect } = {}) {
   const article = document.createElement('article');
+  const button = document.createElement('button');
   const icon = document.createElement('span');
   const content = document.createElement('div');
   const text = document.createElement('p');
   const date = document.createElement('time');
 
-  article.className = 'question-row';
+  article.className = 'question-item';
+  button.className = 'question-row';
+  button.type = 'button';
+  button.addEventListener('click', () => onSelect?.(question));
   icon.className = 'question-icon';
   icon.textContent = '?';
   icon.setAttribute('aria-hidden', 'true');
@@ -29,11 +33,12 @@ function createQuestionRow(question) {
   date.textContent = formatQuestionDate(question.created_at);
 
   content.append(text);
-  article.append(icon, content, date);
+  button.append(icon, content, date);
+  article.append(button);
   return article;
 }
 
-export function renderQuestionsList(container, questions) {
+export function renderQuestionsList(container, questions, { onSelect } = {}) {
   container.replaceChildren();
 
   if (!questions.length) {
@@ -46,6 +51,8 @@ export function renderQuestionsList(container, questions) {
 
   const list = document.createElement('div');
   list.className = 'questions-list';
-  questions.forEach((question) => list.append(createQuestionRow(question)));
+  questions.forEach((question) => {
+    list.append(createQuestionRow(question, { onSelect }));
+  });
   container.append(list);
 }

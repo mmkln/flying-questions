@@ -6,10 +6,12 @@ import {
   signOut,
 } from './auth.js';
 import { loadQuestions } from './questions-api.js';
+import { createQuestionDetailSheet } from './question-detail-sheet.js';
 import { renderQuestionsList } from './questions-list.js';
 import './styles.css';
 
 const app = document.querySelector('#app');
+const questionDetailSheet = createQuestionDetailSheet();
 let disposeAccountMenu = () => {};
 
 function createAccountMenu(account, { sessionChecking = false } = {}) {
@@ -189,7 +191,9 @@ async function renderAuthenticated(account) {
 
   try {
     const questions = await loadQuestions(API_URL, getAccessToken());
-    renderQuestionsList(main, questions);
+    renderQuestionsList(main, questions, {
+      onSelect: (question) => questionDetailSheet.open(question),
+    });
   } catch (error) {
     const message = document.createElement('p');
     message.className = 'status-message is-error';
