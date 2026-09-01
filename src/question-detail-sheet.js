@@ -6,7 +6,19 @@ import {
 } from './icons.js';
 import { formatQuestionDate } from './questions-list.js';
 
-export function createQuestionDetailSheet({ onToggleAnchor, onEdit } = {}) {
+function workflowLabel(workflow) {
+  const labels = {
+    queued: 'Queued for research',
+    in_progress: 'Being researched',
+    draft_ready: 'Draft ready for your review',
+    closed: 'Answer created',
+  };
+  return labels[workflow?.status] || null;
+}
+
+export function createQuestionDetailSheet(
+  { onToggleAnchor, onEdit, onQueue, onMaterialize } = {},
+) {
   const dialog = document.createElement('dialog');
   const form = document.createElement('form');
   const header = document.createElement('header');
@@ -16,13 +28,19 @@ export function createQuestionDetailSheet({ onToggleAnchor, onEdit } = {}) {
   const anchorButton = document.createElement('button');
   const editButton = document.createElement('button');
   const text = document.createElement('p');
+  const workflow = document.createElement('section');
+  const workflowState = document.createElement('p');
+  const draft = document.createElement('p');
   const footer = document.createElement('footer');
   const date = document.createElement('time');
   const actions = document.createElement('div');
+  const queue = document.createElement('button');
+  const createAnswer = document.createElement('button');
   const done = document.createElement('button');
   const status = document.createElement('p');
   let currentQuestion = null;
   let isUpdatingAnchor = false;
+  let isUpdatingWorkflow = false;
 
   dialog.className = 'question-detail-dialog';
   dialog.setAttribute('aria-labelledby', 'question-detail-title');
@@ -52,6 +70,10 @@ export function createQuestionDetailSheet({ onToggleAnchor, onEdit } = {}) {
   editButton.append(createEditIcon());
 
   text.className = 'question-detail-text';
+  workflow.className = 'question-detail-workflow';
+  workflowState.className = 'question-detail-workflow-state';
+  draft.className = 'question-detail-draft';
+  workflow.hidden = true;
   footer.className = 'question-detail-footer';
   date.className = 'question-detail-date';
   actions.className = 'question-detail-actions';
@@ -59,15 +81,26 @@ export function createQuestionDetailSheet({ onToggleAnchor, onEdit } = {}) {
   status.setAttribute('role', 'status');
   status.hidden = true;
 
+  queue.className = 'question-detail-secondary';
+  queue.type = 'button';
+  queue.textContent = 'Queue for research';
+  queue.hidden = true;
+
+  createAnswer.className = 'question-detail-primary';
+  createAnswer.type = 'button';
+  createAnswer.textContent = 'Create answer';
+  createAnswer.hidden = true;
+
   done.className = 'question-detail-primary';
   done.type = 'submit';
   done.textContent = 'Done';
 
   headerActions.append(anchorButton, editButton);
   header.append(icon, title, headerActions);
-  actions.append(done);
+  workflow.append(workflowState, draft);
+  actions.append(queue, createAnswer, done);
   footer.append(date, actions);
-  form.append(header, text, status, footer);
+  form.append(header, text, workflow, status, footer);
   dialog.append(form);
   document.body.append(dialog);
 
@@ -86,6 +119,22 @@ export function createQuestionDetailSheet({ onToggleAnchor, onEdit } = {}) {
     );
     anchorButton.title = anchored ? 'Remove from anchors' : 'Add to anchors';
     editButton.hidden = !onEdit;
+
+    const questionWorkflow = question.workflow;
+    const latestRun = questionWorkflow?.latest_run;
+    const label = workflowLabel(questionWorkflow);
+    workflow.hidden = !label;
+    workflowState.textContent = label || '';
+    draft.textContent = latestRun?.draft || '';
+    draft.hidden = !latestRun?.draft;
+    queue.hidden = Boolean(questionWorkflow) || !onQueue;
+    createAnswer.hidden = !(
+      onMaterialize
+      && questionWorkflow?.status === 'draft_ready'
+      && latestRun?.id
+      && latestRun?.draft
+      && !latestRun.answer_id
+    );
   }
 
   anchorButton.addEventListener('click', async () => {
@@ -110,6 +159,43 @@ export function createQuestionDetailSheet({ onToggleAnchor, onEdit } = {}) {
   editButton.addEventListener('click', () => {
     if (!currentQuestion || !onEdit) return;
     onEdit(currentQuestion);
+  });
+
+  queue.addEventListener('click', async () => {
+    if (!currentQuestion || isUpdatingWorkflow || !onQueue) return;
+
+    isUpdatingWorkflow = true;
+    queue.disabled = true;
+    status.hidden = true;
+    try {
+      const updatedQuestion = await onQueue(currentQuestion);
+      if (updatedQuestion) renderQuestion(updatedQuestion);
+    } catch (error) {
+      status.textContent = error.message || 'Could not queue this question.';
+      status.hidden = false;
+    } finally {
+      isUpdatingWorkflow = false;
+      queue.disabled = false;
+    }
+  });
+
+  createAnswer.addEventListener('click', async () => {
+    const runId = currentQuestion?.workflow?.latest_run?.id;
+    if (!currentQuestion || !runId || isUpdatingWorkflow || !onMaterialize) return;
+
+    isUpdatingWorkflow = true;
+    createAnswer.disabled = true;
+    status.hidden = true;
+    try {
+      const updatedQuestion = await onMaterialize(currentQuestion, runId);
+      if (updatedQuestion) renderQuestion(updatedQuestion);
+    } catch (error) {
+      status.textContent = error.message || 'Could not create an answer.';
+      status.hidden = false;
+    } finally {
+      isUpdatingWorkflow = false;
+      createAnswer.disabled = false;
+    }
   });
 
   dialog.addEventListener('cancel', (event) => {

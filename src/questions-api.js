@@ -1,13 +1,21 @@
 import { withAnchor, withoutAnchor } from './anchors.js';
 
-export const QUESTIONS_PATH = '/thoughts/?knowledge_kind=question';
+export const QUESTIONS_INBOX_PATH = '/questions/inbox/';
 
 export function getQuestionsUrl(apiUrl) {
-  return `${String(apiUrl).replace(/\/$/, '')}${QUESTIONS_PATH}`;
+  return `${String(apiUrl).replace(/\/$/, '')}${QUESTIONS_INBOX_PATH}`;
 }
 
 export function getThoughtSyncUrl(apiUrl, thoughtId) {
   return `${String(apiUrl).replace(/\/$/, '')}/thoughts/${thoughtId}/sync/`;
+}
+
+export function getQuestionQueueUrl(apiUrl, questionId) {
+  return `${String(apiUrl).replace(/\/$/, '')}/questions/${questionId}/queue/`;
+}
+
+export function getQuestionMaterializeUrl(apiUrl, runId) {
+  return `${String(apiUrl).replace(/\/$/, '')}/questions/runs/${runId}/materialize/`;
 }
 
 async function parseThoughtSyncResponse(response, fallbackMessage) {
@@ -24,6 +32,7 @@ async function parseThoughtSyncResponse(response, fallbackMessage) {
   error.current = payload?.current ?? null;
   throw error;
 }
+
 export async function loadQuestions(apiUrl, accessToken) {
   const response = await fetch(getQuestionsUrl(apiUrl), {
     headers: {
@@ -42,6 +51,51 @@ export async function loadQuestions(apiUrl, accessToken) {
 
   if (!Array.isArray(payload)) {
     throw new Error('The server returned an invalid questions list.');
+  }
+
+  return payload;
+}
+
+export async function queueQuestion(apiUrl, accessToken, questionId, priority) {
+  const body = Number.isInteger(priority) ? { priority } : {};
+  const response = await fetch(getQuestionQueueUrl(apiUrl, questionId), {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(body),
+  });
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok || !payload || typeof payload.id !== 'string') {
+    const detail = typeof payload?.detail === 'string'
+      ? payload.detail
+      : 'Could not queue this question.';
+    throw new Error(detail);
+  }
+
+  return payload;
+}
+
+export async function materializeQuestionDraft(apiUrl, accessToken, runId) {
+  const response = await fetch(getQuestionMaterializeUrl(apiUrl, runId), {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({}),
+  });
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok || !payload?.answer?.id) {
+    const detail = typeof payload?.detail === 'string'
+      ? payload.detail
+      : 'Could not create an answer from this draft.';
+    throw new Error(detail);
   }
 
   return payload;
@@ -92,6 +146,7 @@ export async function updateQuestionText(apiUrl, accessToken, question, text) {
 
   return parseThoughtSyncResponse(response, 'Could not update the question.');
 }
+
 export async function setQuestionAnchor(
   apiUrl,
   accessToken,

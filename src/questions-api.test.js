@@ -2,20 +2,55 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  QUESTIONS_PATH,
+  QUESTIONS_INBOX_PATH,
   createQuestion,
+  getQuestionMaterializeUrl,
+  getQuestionQueueUrl,
   getQuestionsUrl,
   getThoughtSyncUrl,
+  queueQuestion,
   setQuestionAnchor,
   updateQuestionText,
 } from './questions-api.js';
 
-test('builds the server-filtered questions endpoint', () => {
-  assert.equal(QUESTIONS_PATH, '/thoughts/?knowledge_kind=question');
+test('builds the dedicated questions inbox endpoint', () => {
+  assert.equal(QUESTIONS_INBOX_PATH, '/questions/inbox/');
   assert.equal(
     getQuestionsUrl('http://127.0.0.1:8001/api/v1/'),
-    'http://127.0.0.1:8001/api/v1/thoughts/?knowledge_kind=question',
+    'http://127.0.0.1:8001/api/v1/questions/inbox/',
   );
+  assert.equal(
+    getQuestionQueueUrl('http://127.0.0.1:8001/api/v1/', 'question-id'),
+    'http://127.0.0.1:8001/api/v1/questions/question-id/queue/',
+  );
+  assert.equal(
+    getQuestionMaterializeUrl('http://127.0.0.1:8001/api/v1/', 'run-id'),
+    'http://127.0.0.1:8001/api/v1/questions/runs/run-id/materialize/',
+  );
+});
+
+test('queues a question without altering its metadata', async (t) => {
+  const originalFetch = globalThis.fetch;
+  let request;
+  globalThis.fetch = async (url, options) => {
+    request = { url, options };
+    return {
+      ok: true,
+      json: async () => ({ id: 'question-id', workflow: { status: 'queued' } }),
+    };
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  await queueQuestion(
+    'http://127.0.0.1:8001/api/v1',
+    'access-token',
+    'question-id',
+    3,
+  );
+
+  assert.equal(request.url, 'http://127.0.0.1:8001/api/v1/questions/question-id/queue/');
+  assert.equal(request.options.method, 'POST');
+  assert.deepEqual(JSON.parse(request.options.body), { priority: 3 });
 });
 
 test('builds the revision-safe thought sync endpoint', () => {
@@ -117,6 +152,7 @@ test('keeps the current server version on a conflicting text update', async (t) 
     ),
   );
 });
+
 test('patches only navigation when anchoring a question', async (t) => {
   const originalFetch = globalThis.fetch;
   let request;

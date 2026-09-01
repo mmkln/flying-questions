@@ -9,6 +9,8 @@ import { hasAnchor } from './anchors.js';
 import {
   createQuestion,
   loadQuestions,
+  materializeQuestionDraft,
+  queueQuestion,
   setQuestionAnchor,
   updateQuestionText,
 } from './questions-api.js';
@@ -43,6 +45,8 @@ questionDetailSheet = createQuestionDetailSheet({
     questionDetailSheet.close();
     questionEditor.openForEdit(question);
   },
+  onQueue: queueQuestionForResearch,
+  onMaterialize: materializeQuestionAnswer,
 });
 let disposeAccountMenu = () => {};
 let questionsMain = null;
@@ -280,7 +284,11 @@ function replaceQuestion(updatedQuestion) {
   questions = questions.map((question) => {
     if (question.id !== updatedQuestion.id) return question;
 
-    replacement = { ...question, ...updatedQuestion };
+    replacement = {
+      ...question,
+      ...updatedQuestion,
+      workflow: updatedQuestion.workflow ?? question.workflow,
+    };
     return replacement;
   });
   return replacement;
@@ -352,14 +360,35 @@ async function persistQuestion(draft) {
   return mergedQuestion;
 }
 
+async function queueQuestionForResearch(question) {
+  const updatedQuestion = await queueQuestion(
+    API_URL,
+    getAccessToken(),
+    question.id,
+  );
+  const mergedQuestion = replaceQuestion(updatedQuestion);
+  renderQuestions();
+  return mergedQuestion;
+}
+
+async function refreshQuestions() {
+  questions = await loadQuestions(API_URL, getAccessToken());
+  renderQuestions();
+}
+
+async function materializeQuestionAnswer(_question, runId) {
+  await materializeQuestionDraft(API_URL, getAccessToken(), runId);
+  await refreshQuestions();
+  return questions.find((question) => question.workflow?.latest_run?.id === runId) || null;
+}
+
 async function renderAuthenticated(account) {
   const main = createShell({ account });
   questionsMain = main;
   renderLoading(main, 'Loading questions…');
 
   try {
-    questions = await loadQuestions(API_URL, getAccessToken());
-    renderQuestions();
+    await refreshQuestions();
   } catch (error) {
     const message = document.createElement('p');
     message.className = 'status-message is-error';

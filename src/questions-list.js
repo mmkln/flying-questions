@@ -11,12 +11,23 @@ export function formatQuestionDate(value) {
   }).format(date);
 }
 
+function workflowLabel(workflow) {
+  const labels = {
+    queued: 'Queued',
+    in_progress: 'Researching',
+    draft_ready: 'Draft ready',
+    closed: 'Answered',
+  };
+  return labels[workflow?.status] || null;
+}
+
 function createQuestionRow(question, { onSelect } = {}) {
   const article = document.createElement('article');
   const button = document.createElement('button');
   const icon = document.createElement('span');
   const content = document.createElement('div');
   const text = document.createElement('p');
+  const workflow = document.createElement('span');
   const date = document.createElement('time');
   const anchor = document.createElement('span');
 
@@ -32,6 +43,11 @@ function createQuestionRow(question, { onSelect } = {}) {
   text.className = 'question-text';
   text.textContent = question.text;
 
+  const label = workflowLabel(question.workflow);
+  workflow.className = 'question-workflow-status';
+  workflow.textContent = label || '';
+  workflow.hidden = !label;
+
   date.className = 'question-date';
   date.dateTime = question.created_at;
   date.textContent = formatQuestionDate(question.created_at);
@@ -42,7 +58,7 @@ function createQuestionRow(question, { onSelect } = {}) {
   anchor.setAttribute('aria-label', 'Anchored');
   anchor.append(createAnchorIcon());
 
-  content.append(text);
+  content.append(text, workflow);
   button.append(icon, content, date, anchor);
   article.append(button);
   return article;
