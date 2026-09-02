@@ -45,11 +45,13 @@ function createQuestionDetailContent(
   const titleGroup = document.createElement('div');
   const title = document.createElement('h2');
   const date = document.createElement('time');
+  const headerActions = document.createElement('div');
+  const anchorToggle = document.createElement('button');
+  const anchorToggleLabel = document.createElement('span');
   const menuContainer = document.createElement('div');
   const menuTrigger = document.createElement('button');
   const menu = document.createElement('div');
   const editItem = createMenuItem('Edit question');
-  const anchorItem = createMenuItem('Add to anchors');
   const body = document.createElement('div');
   const emptyState = document.createElement('p');
   const activity = document.createElement('section');
@@ -91,6 +93,11 @@ function createQuestionDetailContent(
   titleGroup.append(title, date);
   identity.append(icon, titleGroup);
 
+  headerActions.className = 'question-inspector-header-actions';
+  anchorToggle.className = 'question-inspector-anchor';
+  anchorToggle.type = 'button';
+  anchorToggle.append(createAnchorIcon(), anchorToggleLabel);
+
   menuContainer.className = 'question-inspector-menu-container';
   menuTrigger.className = 'question-inspector-more';
   menuTrigger.type = 'button';
@@ -101,9 +108,10 @@ function createQuestionDetailContent(
   menu.className = 'question-inspector-menu';
   menu.setAttribute('role', 'menu');
   menu.hidden = true;
-  menu.append(editItem, anchorItem);
+  menu.append(editItem);
   menuContainer.append(menuTrigger, menu);
-  header.append(identity, menuContainer);
+  headerActions.append(anchorToggle, menuContainer);
+  header.append(identity, headerActions);
 
   emptyState.className = 'question-inspector-empty';
   emptyState.textContent = 'Select a question to view its details and research.';
@@ -225,9 +233,17 @@ function createQuestionDetailContent(
     title.textContent = question.text;
     date.dateTime = question.created_at;
     date.textContent = formatQuestionDate(question.created_at);
-    anchorItem.textContent = anchored ? 'Remove from anchors' : 'Add to anchors';
+    anchorToggle.hidden = !onToggleAnchor;
+    anchorToggle.disabled = isUpdatingAnchor;
+    anchorToggle.classList.toggle('is-anchored', anchored);
+    anchorToggle.setAttribute('aria-pressed', String(anchored));
+    anchorToggle.setAttribute(
+      'aria-label',
+      anchored ? 'Remove from anchors' : 'Add to anchors',
+    );
+    anchorToggle.title = anchored ? 'Remove from anchors' : 'Add to anchors';
+    anchorToggleLabel.textContent = anchored ? 'Anchored' : 'Anchor';
     editItem.hidden = !onEdit;
-    anchorItem.hidden = !onToggleAnchor;
 
     activityLabel.hidden = isReader;
     activityLabel.textContent = 'Research';
@@ -309,13 +325,12 @@ function createQuestionDetailContent(
     onEdit(currentQuestion);
   });
 
-  anchorItem.addEventListener('click', async () => {
+  anchorToggle.addEventListener('click', async () => {
     if (!currentQuestion || isUpdatingAnchor || !onToggleAnchor) return;
 
     isUpdatingAnchor = true;
-    anchorItem.disabled = true;
+    anchorToggle.disabled = true;
     status.hidden = true;
-    contextMenu.close();
 
     try {
       const updatedQuestion = await onToggleAnchor(currentQuestion);
@@ -325,7 +340,7 @@ function createQuestionDetailContent(
       status.hidden = false;
     } finally {
       isUpdatingAnchor = false;
-      anchorItem.disabled = false;
+      anchorToggle.disabled = false;
     }
   });
 
