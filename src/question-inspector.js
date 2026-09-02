@@ -61,6 +61,9 @@ function createQuestionDetailContent(
   const editItem = createMenuItem('Edit question');
   const body = document.createElement('div');
   const emptyState = document.createElement('p');
+  const mobileQuestion = document.createElement('details');
+  const mobileQuestionSummary = document.createElement('summary');
+  const mobileQuestionText = document.createElement('p');
   const activity = document.createElement('section');
   const activityLabel = document.createElement('p');
   const activityTitle = document.createElement('h3');
@@ -116,6 +119,11 @@ function createQuestionDetailContent(
   emptyState.className = 'question-inspector-empty';
   emptyState.textContent = 'Select a question to view its details and research.';
   body.className = 'question-inspector-body';
+  mobileQuestion.className = 'question-inspector-mobile-question';
+  mobileQuestionSummary.textContent = 'Show full question';
+  mobileQuestionText.className = 'question-inspector-mobile-question-text';
+  mobileQuestion.append(mobileQuestionSummary, mobileQuestionText);
+  mobileQuestion.hidden = true;
 
   activity.className = 'question-inspector-activity';
   activityLabel.className = 'question-inspector-section-label';
@@ -164,12 +172,10 @@ function createQuestionDetailContent(
     researchContext.element,
     preview,
     reader,
-    status,
-    actionRow,
   );
   actionRow.append(backButton, closeButton, primaryAction);
-  body.append(emptyState, activity);
-  element.append(header, body);
+  body.append(emptyState, mobileQuestion, activity, status);
+  element.append(header, body, actionRow);
 
   const contextMenu = createContextMenu({
     container: menuContainer,
@@ -197,6 +203,21 @@ function createQuestionDetailContent(
     });
   }
 
+  function syncMobileQuestionDisclosure() {
+    const questionId = currentQuestion?.id;
+    if (!isMobile || !questionId) {
+      mobileQuestion.hidden = true;
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      if (!isMobile || currentQuestion?.id !== questionId) return;
+
+      const titleIsTruncated = title.scrollHeight > title.clientHeight + 1;
+      mobileQuestion.hidden = !titleIsTruncated;
+    });
+  }
+
   function renderEmpty() {
     currentQuestion = null;
     viewMode = DETAIL_VIEW_MODE.OVERVIEW;
@@ -208,7 +229,10 @@ function createQuestionDetailContent(
     header.hidden = true;
     activity.hidden = true;
     emptyState.hidden = false;
+    mobileQuestion.hidden = true;
+    mobileQuestion.open = false;
     status.hidden = true;
+    actionRow.hidden = true;
     contextMenu.close();
   }
 
@@ -218,6 +242,7 @@ function createQuestionDetailContent(
       return;
     }
 
+    const changedQuestion = currentQuestion?.id !== question.id;
     currentQuestion = question;
     const presentation = getQuestionDetailPresentation(question, viewMode);
     const isOverview = viewMode === DETAIL_VIEW_MODE.OVERVIEW;
@@ -232,6 +257,11 @@ function createQuestionDetailContent(
     activity.hidden = false;
     emptyState.hidden = true;
     title.textContent = question.text;
+    mobileQuestionText.textContent = question.text;
+    if (changedQuestion) {
+      mobileQuestion.open = false;
+      body.scrollTop = 0;
+    }
     date.dateTime = question.created_at;
     date.textContent = formatQuestionDate(question.created_at);
     anchorToggle.hidden = !onToggleAnchor;
@@ -299,6 +329,7 @@ function createQuestionDetailContent(
     setPrimaryAction(canRunAction ? action : undefined);
 
     actionRow.hidden = primaryAction.hidden && backButton.hidden && closeButton.hidden;
+    syncMobileQuestionDisclosure();
   }
 
   function setMobile(nextIsMobile) {
@@ -353,6 +384,7 @@ function createQuestionDetailContent(
     if (action === 'review-draft') {
       viewMode = DETAIL_VIEW_MODE.REVIEW_DRAFT;
       renderQuestion(currentQuestion);
+      body.scrollTop = 0;
       focusPreferredAction();
       return;
     }
