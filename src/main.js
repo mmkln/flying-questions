@@ -17,7 +17,12 @@ import {
 import { createContextMenu } from './context-menu.js';
 import { createQuestionEditor } from './question-editor.js';
 import { createQuestionInspector } from './question-inspector.js';
-import { renderQuestionsList } from './questions-list.js';
+import {
+  getQuestionCounts,
+  normalizeQuestionQuery,
+  selectQuestions,
+} from './question-query.js';
+import { createQuestionsList } from './questions-list.js';
 import {
   ThemeMode,
   nextThemeMode,
@@ -62,8 +67,9 @@ questionInspector = createQuestionInspector({
 });
 let disposeAccountMenu = () => {};
 let questionsMain = null;
+let questionsList = null;
 let questions = [];
-let activeFilter = 'all';
+let listQuery = normalizeQuestionQuery();
 let themeMode = normalizeThemeMode(document.documentElement.dataset.themeMode);
 
 function renderThemeButton() {
@@ -275,6 +281,9 @@ function createNewQuestionButton() {
 }
 
 function renderSignedOut(message = 'Sign in to view your questions.') {
+  questionsMain = null;
+  questionsList = null;
+  listQuery = normalizeQuestionQuery();
   selectedQuestionId = null;
   questionInspector?.close();
   const main = createShell();
@@ -307,25 +316,29 @@ function replaceQuestion(updatedQuestion) {
 function renderQuestions() {
   if (!questionsMain) return;
 
-  const anchoredCount = questions.filter(hasAnchor).length;
-  const visibleQuestions = activeFilter === 'anchored'
-    ? questions.filter(hasAnchor)
-    : questions;
+  if (!questionsList) {
+    questionsList = createQuestionsList({
+      onQueryChange(patch) {
+        listQuery = normalizeQuestionQuery({
+          ...listQuery,
+          ...patch,
+        });
+        renderQuestions();
+      },
+      onSelect(question) {
+        selectedQuestionId = question.id;
+        questionInspector.open(question);
+        renderQuestions();
+      },
+    });
+    questionsMain.replaceChildren(questionsList.element);
+  }
 
-  renderQuestionsList(questionsMain, visibleQuestions, {
-    activeFilter,
-    allCount: questions.length,
-    anchoredCount,
+  questionsList.render({
+    questions: selectQuestions(questions, listQuery),
+    query: listQuery,
+    counts: getQuestionCounts(questions),
     selectedQuestionId,
-    onFilterChange(nextFilter) {
-      activeFilter = nextFilter;
-      renderQuestions();
-    },
-    onSelect(question) {
-      selectedQuestionId = question.id;
-      questionInspector.open(question);
-      renderQuestions();
-    },
   });
 }
 
@@ -400,11 +413,13 @@ async function materializeQuestionAnswer(_question, runId) {
 async function renderAuthenticated(account) {
   const main = createShell({ account });
   questionsMain = main;
+  questionsList = null;
   renderLoading(main, 'Loading questions…');
 
   try {
     await refreshQuestions();
   } catch (error) {
+    questionsList = null;
     const message = document.createElement('p');
     message.className = 'status-message is-error';
     message.textContent = error.message;

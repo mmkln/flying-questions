@@ -1,5 +1,6 @@
 import { hasAnchor } from './anchors.js';
 import { createAnchorIcon, createQuestionIcon } from './icons.js';
+import { QuestionScope } from './question-query.js';
 import { getWorkflowLabel } from './question-workflow.js';
 
 export function formatQuestionDate(value) {
@@ -62,54 +63,122 @@ function createQuestionRow(question, { onSelect, selectedQuestionId } = {}) {
   return article;
 }
 
-function createFilterButton(value, label, count, activeFilter, onFilterChange) {
+function createFilterButton(value, label, onQueryChange) {
   const button = document.createElement('button');
   button.className = 'question-filter';
   button.type = 'button';
-  button.textContent = `${label} ${count}`;
-  button.classList.toggle('is-active', activeFilter === value);
-  button.setAttribute('aria-pressed', String(activeFilter === value));
-  button.addEventListener('click', () => onFilterChange?.(value));
+  button.addEventListener('click', () => onQueryChange?.({ scope: value }));
+  button.dataset.label = label;
+  button.dataset.scope = value;
   return button;
 }
 
-export function renderQuestionsList(
-  container,
-  questions,
-  {
-    onSelect,
-    activeFilter = 'all',
-    allCount = questions.length,
-    anchoredCount = 0,
-    onFilterChange,
-    selectedQuestionId = null,
-  } = {},
-) {
-  container.replaceChildren();
-
-  const filters = document.createElement('nav');
-  filters.className = 'question-filters';
-  filters.setAttribute('aria-label', 'Question filter');
-  filters.append(
-    createFilterButton('all', 'All', allCount, activeFilter, onFilterChange),
-    createFilterButton('anchored', 'Anchored', anchoredCount, activeFilter, onFilterChange),
-  );
-  container.append(filters);
-
-  if (!questions.length) {
-    const empty = document.createElement('p');
-    empty.className = 'empty-state';
-    empty.textContent = activeFilter === 'anchored'
+function createEmptyState(query) {
+  const empty = document.createElement('p');
+  empty.className = 'empty-state';
+  empty.textContent = query.text.trim()
+    ? 'No matching questions.'
+    : query.scope === QuestionScope.ANCHORED
       ? 'No anchored questions yet.'
       : 'No questions yet.';
-    container.append(empty);
-    return;
+  return empty;
+}
+
+function formatResultCount(count, query) {
+  const searchText = query.text.trim();
+  if (!searchText) return '';
+
+  return `${count} ${count === 1 ? 'result' : 'results'} for “${searchText}”`;
+}
+
+export function createQuestionsList({ onQueryChange, onSelect } = {}) {
+  const element = document.createElement('section');
+  const toolbar = document.createElement('div');
+  const search = document.createElement('div');
+  const searchInput = document.createElement('input');
+  const clearButton = document.createElement('button');
+  const filters = document.createElement('nav');
+  const allButton = createFilterButton(QuestionScope.ALL, 'All', onQueryChange);
+  const anchoredButton = createFilterButton(
+    QuestionScope.ANCHORED,
+    'Anchored',
+    onQueryChange,
+  );
+  const resultsSummary = document.createElement('p');
+  const results = document.createElement('div');
+
+  element.className = 'questions-list-view';
+  toolbar.className = 'questions-list-toolbar';
+  search.className = 'question-search';
+  searchInput.className = 'question-search-input';
+  searchInput.type = 'search';
+  searchInput.placeholder = 'Search questions';
+  searchInput.autocomplete = 'off';
+  searchInput.setAttribute('aria-label', 'Search questions');
+  clearButton.className = 'question-search-clear';
+  clearButton.type = 'button';
+  clearButton.textContent = 'Clear';
+  clearButton.hidden = true;
+  filters.className = 'question-filters';
+  filters.setAttribute('aria-label', 'Question filter');
+  filters.append(allButton, anchoredButton);
+  resultsSummary.className = 'question-results-summary';
+  resultsSummary.setAttribute('aria-live', 'polite');
+  resultsSummary.hidden = true;
+  results.className = 'questions-list-results';
+  search.append(searchInput, clearButton);
+  toolbar.append(search, filters);
+  element.append(toolbar, resultsSummary, results);
+
+  searchInput.addEventListener('input', () => {
+    onQueryChange?.({ text: searchInput.value });
+  });
+
+  searchInput.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || !searchInput.value) return;
+
+    event.preventDefault();
+    searchInput.value = '';
+    onQueryChange?.({ text: '' });
+  });
+
+  clearButton.addEventListener('click', () => {
+    searchInput.value = '';
+    onQueryChange?.({ text: '' });
+    searchInput.focus();
+  });
+
+  function render({ questions, query, counts, selectedQuestionId = null }) {
+    if (document.activeElement !== searchInput && searchInput.value !== query.text) {
+      searchInput.value = query.text;
+    }
+
+    clearButton.hidden = !query.text;
+    allButton.textContent = `${allButton.dataset.label} ${counts.all}`;
+    anchoredButton.textContent = `${anchoredButton.dataset.label} ${counts.anchored}`;
+
+    for (const button of [allButton, anchoredButton]) {
+      const isActive = button.dataset.scope === query.scope;
+      button.classList.toggle('is-active', isActive);
+      button.setAttribute('aria-pressed', String(isActive));
+    }
+
+    const summary = formatResultCount(questions.length, query);
+    resultsSummary.textContent = summary;
+    resultsSummary.hidden = !summary;
+
+    if (!questions.length) {
+      results.replaceChildren(createEmptyState(query));
+      return;
+    }
+
+    const list = document.createElement('div');
+    list.className = 'questions-list';
+    questions.forEach((question) => {
+      list.append(createQuestionRow(question, { onSelect, selectedQuestionId }));
+    });
+    results.replaceChildren(list);
   }
 
-  const list = document.createElement('div');
-  list.className = 'questions-list';
-  questions.forEach((question) => {
-    list.append(createQuestionRow(question, { onSelect, selectedQuestionId }));
-  });
-  container.append(list);
+  return { element, render };
 }
