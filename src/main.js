@@ -230,14 +230,28 @@ function createAccountMenu(account, { sessionChecking = false } = {}) {
 function createShell({ account = null, sessionChecking = false } = {}) {
   disposeAccountMenu();
   const shell = document.createElement('div');
+  const toolbar = document.createElement('header');
+  const toolbarLeading = document.createElement('div');
+  const toolbarActions = document.createElement('div');
   const title = document.createElement('h1');
   const main = document.createElement('main');
   const accountMenu = createAccountMenu(account, { sessionChecking });
 
   shell.className = 'app-shell';
-  title.className = 'sr-only';
+  toolbar.className = 'app-toolbar';
+  toolbarLeading.className = 'app-toolbar-leading';
+  toolbarActions.className = 'app-toolbar-actions';
+  title.className = 'app-title';
   title.textContent = 'Questions';
   main.className = 'app-main';
+  toolbarLeading.append(themeButton, title);
+
+  if (account) {
+    toolbarActions.append(createNewQuestionButton());
+  }
+
+  toolbarActions.append(accountMenu.menu);
+  toolbar.append(toolbarLeading, toolbarActions);
 
   if (account) {
     const workspace = document.createElement('div');
@@ -247,16 +261,14 @@ function createShell({ account = null, sessionChecking = false } = {}) {
     listPane.className = 'questions-list-pane';
     workspace.append(listPane, questionInspector.element);
     main.append(workspace);
-    shell.append(title, main);
-    const elements = [shell, accountMenu.menu, createNewQuestionButton()];
-    app.replaceChildren(...elements);
+    shell.append(toolbar, main);
+    app.replaceChildren(shell);
     disposeAccountMenu = accountMenu.dispose;
     return listPane;
   }
 
-  shell.append(title, main);
-  const elements = [shell, accountMenu.menu];
-  app.replaceChildren(...elements);
+  shell.append(toolbar, main);
+  app.replaceChildren(shell);
   disposeAccountMenu = accountMenu.dispose;
   return main;
 }
