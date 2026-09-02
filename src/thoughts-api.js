@@ -18,8 +18,9 @@ export function getRelatedThoughtReferencesUrl(apiUrl, thoughtId) {
   return url.toString();
 }
 
-async function loadReferences(url, accessToken, fallbackMessage) {
+async function loadReferences(url, accessToken, fallbackMessage, { signal } = {}) {
   const response = await fetch(url, {
+    signal,
     headers: {
       Accept: 'application/json',
       Authorization: `Bearer ${accessToken}`,
@@ -35,18 +36,20 @@ async function loadReferences(url, accessToken, fallbackMessage) {
   return payload;
 }
 
-export function searchThoughtReferences(apiUrl, accessToken, query) {
+export function searchThoughtReferences(apiUrl, accessToken, query, options) {
   return loadReferences(
     getThoughtReferencesUrl(apiUrl, query),
     accessToken,
     'Could not search thoughts.',
+    options,
   );
 }
 
-export function loadRelatedThoughtReferences(apiUrl, accessToken, thoughtId) {
+export function loadRelatedThoughtReferences(apiUrl, accessToken, thoughtId, options) {
   return loadReferences(
     getRelatedThoughtReferencesUrl(apiUrl, thoughtId),
     accessToken,
     'Could not load related thoughts.',
+    options,
   );
 }

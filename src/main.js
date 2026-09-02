@@ -64,11 +64,16 @@ questionInspector = createQuestionInspector({
   },
   onQueue: queueQuestionForResearch,
   onMaterialize: materializeQuestionAnswer,
-  onLoadRelatedThoughts(questionId) {
-    return loadRelatedThoughtReferences(API_URL, getAccessToken(), questionId);
+  onLoadRelatedThoughts(questionId, options) {
+    return loadRelatedThoughtReferences(
+      API_URL,
+      getAccessToken(),
+      questionId,
+      options,
+    );
   },
-  onSearchThoughts(query) {
-    return searchThoughtReferences(API_URL, getAccessToken(), query);
+  onSearchThoughts(query, options) {
+    return searchThoughtReferences(API_URL, getAccessToken(), query, options);
   },
   onClose() {
     selectedQuestionId = null;

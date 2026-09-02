@@ -15,6 +15,7 @@ export function createThoughtPicker({
   const title = document.createElement('h2');
   const close = document.createElement('button');
   const search = document.createElement('input');
+  const scope = document.createElement('p');
   const status = document.createElement('p');
   const list = document.createElement('ul');
   const footer = document.createElement('footer');
@@ -23,7 +24,7 @@ export function createThoughtPicker({
   let selected = [];
   let activeQuestionId = null;
   let searchTimer = null;
-  let requestVersion = 0;
+  let activeRequestController = null;
 
   dialog.className = 'thought-picker-dialog';
   dialog.setAttribute('aria-labelledby', 'thought-picker-title');
@@ -41,6 +42,7 @@ export function createThoughtPicker({
   search.placeholder = 'Search your thoughts';
   search.autocomplete = 'off';
   search.setAttribute('aria-label', 'Search your thoughts');
+  scope.className = 'thought-picker-scope';
   status.className = 'thought-picker-status';
   status.hidden = true;
   list.className = 'thought-picker-list';
@@ -50,20 +52,23 @@ export function createThoughtPicker({
   done.className = 'thought-picker-done';
   done.textContent = 'Done';
   footer.append(count, done);
-  form.append(header, search, status, list, footer);
+  form.append(header, search, scope, status, list, footer);
   dialog.append(form);
   document.body.append(dialog);
 
-  function renderList(thoughts = []) {
+  function renderList(thoughts = [], emptyMessage = 'No thoughts found.') {
+    const selectableThoughts = thoughts.filter(
+      (thought) => thought?.id && thought.id !== activeQuestionId,
+    );
     list.replaceChildren();
-    if (!thoughts.length) {
+    if (!selectableThoughts.length) {
       const empty = document.createElement('li');
       empty.className = 'thought-picker-empty';
-      empty.textContent = 'No thoughts found.';
+      empty.textContent = emptyMessage;
       list.append(empty);
     }
 
-    for (const thought of thoughts) {
+    for (const thought of selectableThoughts) {
       const item = document.createElement('li');
       const button = document.createElement('button');
       const check = document.createElement('span');
@@ -91,7 +96,7 @@ export function createThoughtPicker({
             thoughts: [...selected, thought],
           }).thoughts;
         }
-        renderList(thoughts);
+        renderList(thoughts, emptyMessage);
         renderCount();
       });
       list.append(item);
@@ -102,19 +107,42 @@ export function createThoughtPicker({
     count.textContent = selected.length ? `${selected.length} selected` : 'Select up to 12';
   }
 
-  async function showResults(loader) {
-    const version = ++requestVersion;
+  async function showResults(
+    loader,
+    {
+      label,
+      empty = 'No thoughts found.',
+      loading = 'Loading…',
+    } = {},
+  ) {
+    activeRequestController?.abort();
+
+    const controller = new AbortController();
+    activeRequestController = controller;
+    scope.textContent = label || '';
+    scope.hidden = !label;
+    list.replaceChildren();
     status.hidden = false;
-    status.textContent = 'Loading…';
+    status.classList.remove('is-error');
+    status.textContent = loading;
+
     try {
-      const thoughts = await loader();
-      if (version !== requestVersion) return;
-      status.hidden = true;
-      renderList(thoughts);
+      const thoughts = await loader({ signal: controller.signal });
+      if (controller !== activeRequestController) return;
+
+      renderList(Array.isArray(thoughts) ? thoughts : [], empty);
     } catch (error) {
-      if (version !== requestVersion) return;
+      if (error?.name === 'AbortError' || controller !== activeRequestController) return;
+
+      status.classList.add('is-error');
       status.textContent = error.message || 'Could not load thoughts.';
-      renderList([]);
+    } finally {
+      if (
+        controller === activeRequestController
+      ) {
+        activeRequestController = null;
+        if (!status.classList.contains('is-error')) status.hidden = true;
+      }
     }
   }
 
@@ -125,7 +153,13 @@ export function createThoughtPicker({
     renderCount();
     if (!dialog.open) dialog.showModal();
     search.focus();
-    await showResults(() => loadSuggestions?.(questionId) || []);
+    await showResults(
+      (options) => loadSuggestions?.(questionId, options) || [],
+      {
+        label: 'Related thoughts',
+        empty: 'No directly connected thoughts. Search all thoughts instead.',
+      },
+    );
   }
 
   close.addEventListener('click', () => dialog.close());
@@ -138,14 +172,29 @@ export function createThoughtPicker({
     searchTimer = window.setTimeout(() => {
       const query = search.value.trim();
       if (!query) {
-        void showResults(() => loadSuggestions?.(activeQuestionId) || []);
+        void showResults(
+          (options) => loadSuggestions?.(activeQuestionId, options) || [],
+          {
+            label: 'Related thoughts',
+            empty: 'No directly connected thoughts. Search all thoughts instead.',
+          },
+        );
         return;
       }
-      void showResults(() => searchThoughts?.(query) || []);
+      void showResults(
+        (options) => searchThoughts?.(query, options) || [],
+        {
+          label: 'All thoughts',
+          loading: 'Searching…',
+          empty: `No thoughts match “${query}”.`,
+        },
+      );
     }, 180);
   });
   dialog.addEventListener('close', () => {
     window.clearTimeout(searchTimer);
+    activeRequestController?.abort();
+    activeRequestController = null;
   });
 
   return { open };

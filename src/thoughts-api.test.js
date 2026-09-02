@@ -22,6 +22,7 @@ test('builds the lightweight thought search and direct-neighbour endpoints', () 
 test('loads only array reference payloads', async (t) => {
   const originalFetch = globalThis.fetch;
   const requests = [];
+  const controller = new AbortController();
   globalThis.fetch = async (url, options) => {
     requests.push({ url, options });
     return {
@@ -35,6 +36,7 @@ test('loads only array reference payloads', async (t) => {
     'http://127.0.0.1:8001/api/v1',
     'token',
     'thought',
+    { signal: controller.signal },
   );
   const related = await loadRelatedThoughtReferences(
     'http://127.0.0.1:8001/api/v1',
@@ -45,5 +47,6 @@ test('loads only array reference payloads', async (t) => {
   assert.equal(search[0].id, 'thought-id');
   assert.equal(related[0].id, 'thought-id');
   assert.equal(requests[0].options.headers.Authorization, 'Bearer token');
+  assert.equal(requests[0].options.signal, controller.signal);
   assert.match(requests[1].url, /related-references/);
 });

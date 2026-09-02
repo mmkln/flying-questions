@@ -131,11 +131,11 @@ function createQuestionDetailContent(
     },
   });
   thoughtPicker = createThoughtPicker({
-    loadSuggestions(questionId) {
-      return onLoadRelatedThoughts?.(questionId) || [];
+    loadSuggestions(questionId, options) {
+      return onLoadRelatedThoughts?.(questionId, options) || [];
     },
-    searchThoughts(query) {
-      return onSearchThoughts?.(query) || [];
+    searchThoughts(query, options) {
+      return onSearchThoughts?.(query, options) || [];
     },
     onDone(thoughts) {
       researchContext.setThoughts(thoughts);

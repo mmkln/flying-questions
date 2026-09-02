@@ -755,6 +755,12 @@ h1, h2, p { margin: 0; }
   caret-color: #7055c5;
   font: inherit;
 }
+.thought-picker-scope {
+  margin: -4px 0 -6px;
+  color: #847e98;
+  font-size: 12px;
+  font-weight: 650;
+}
 .thought-picker-list {
   display: grid;
   min-height: 100px;
@@ -1071,6 +1077,7 @@ html[data-theme="dark"] .research-context-thought {
   background: rgba(150, 123, 240, .1);
 }
 html[data-theme="dark"] .research-context-thought-text { color: #d8d1ea; }
+html[data-theme="dark"] .thought-picker-scope { color: #aaa2bc; }
 html[data-theme="dark"] .thought-picker-option { border-color: rgba(190, 173, 255, .12); }
 html[data-theme="dark"] .thought-picker-option:hover,
 html[data-theme="dark"] .thought-picker-option:focus-visible { background: rgba(150, 123, 240, .16); }
