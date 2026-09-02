@@ -39,6 +39,7 @@ function createQuestionDetailContent(
     onEdit,
     onQueue,
     onMaterialize,
+    onOpenAnswerNote,
     onLoadRelatedThoughts,
     onSearchThoughts,
     onRequestClose,
@@ -293,6 +294,7 @@ function createQuestionDetailContent(
       || action.action === 'create-answer' && onMaterialize
       || action.action === 'review-draft'
       || action.action === 'open-answer'
+      || action.action === 'open-answer-note' && onOpenAnswerNote
     );
     setPrimaryAction(canRunAction ? action : undefined);
 
@@ -360,6 +362,18 @@ function createQuestionDetailContent(
       focusPreferredAction();
       return;
     }
+    if (action === 'open-answer-note') {
+      const noteId = currentQuestion.workflow?.latest_run?.answer_note_id;
+      if (!noteId || !onOpenAnswerNote) return;
+
+      try {
+        onOpenAnswerNote(noteId);
+      } catch (error) {
+        status.textContent = error.message || 'Could not open this note.';
+        status.hidden = false;
+      }
+      return;
+    }
     if (action !== 'queue' && action !== 'create-answer') return;
 
     isUpdatingWorkflow = true;
@@ -405,6 +419,7 @@ export function createQuestionInspector(
     onEdit,
     onQueue,
     onMaterialize,
+    onOpenAnswerNote,
     onLoadRelatedThoughts,
     onSearchThoughts,
     onClose,
@@ -426,6 +441,7 @@ export function createQuestionInspector(
     onEdit,
     onQueue,
     onMaterialize,
+    onOpenAnswerNote,
     onLoadRelatedThoughts,
     onSearchThoughts,
     onRequestClose: close,

@@ -106,7 +106,7 @@ export async function materializeQuestionDraft(apiUrl, accessToken, runId) {
   });
   const payload = await response.json().catch(() => null);
 
-  if (!response.ok || !payload?.answer?.id) {
+  if (!response.ok || !payload?.answer_note?.id) {
     const detail = typeof payload?.detail === 'string'
       ? payload.detail
       : 'Could not create an answer from this draft.';

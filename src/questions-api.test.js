@@ -8,6 +8,7 @@ import {
   getQuestionQueueUrl,
   getQuestionsUrl,
   getThoughtSyncUrl,
+  materializeQuestionDraft,
   queueQuestion,
   setQuestionAnchor,
   updateQuestionText,
@@ -68,6 +69,26 @@ test('builds the revision-safe thought sync endpoint', () => {
     getThoughtSyncUrl('http://127.0.0.1:8001/api/v1/', 'test-uuid'),
     'http://127.0.0.1:8001/api/v1/thoughts/test-uuid/sync/',
   );
+});
+
+test('accepts an answer note returned by materializing a draft', async (t) => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      run: { id: 'run-id', answer_note_id: 'note-id' },
+      answer_note: { id: 'note-id', title: 'Answer' },
+    }),
+  });
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const payload = await materializeQuestionDraft(
+    'http://127.0.0.1:8001/api/v1',
+    'access-token',
+    'run-id',
+  );
+
+  assert.equal(payload.answer_note.id, 'note-id');
 });
 
 test('creates a question through an idempotent sync PUT', async (t) => {

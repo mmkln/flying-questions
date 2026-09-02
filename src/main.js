@@ -36,6 +36,9 @@ import {
 import './styles.css';
 
 const THEME_STORAGE_KEY = 'flying-questions:theme:v1';
+const MAJOM_NOTE_URL_TEMPLATE = String(
+  import.meta.env.VITE_MAJOM_NOTE_URL_TEMPLATE || '',
+);
 const systemThemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
 const app = document.querySelector('#app');
 const themeButton = document.querySelector('#theme-button');
@@ -64,6 +67,7 @@ questionInspector = createQuestionInspector({
   },
   onQueue: queueQuestionForResearch,
   onMaterialize: materializeQuestionAnswer,
+  onOpenAnswerNote: openMajomNote,
   onLoadRelatedThoughts(questionId, options) {
     return loadRelatedThoughtReferences(
       API_URL,
@@ -434,6 +438,18 @@ async function materializeQuestionAnswer(_question, runId) {
   await materializeQuestionDraft(API_URL, getAccessToken(), runId);
   await refreshQuestions();
   return questions.find((question) => question.workflow?.latest_run?.id === runId) || null;
+}
+
+function openMajomNote(noteId) {
+  if (!MAJOM_NOTE_URL_TEMPLATE.includes('{noteId}')) {
+    throw new Error('Majom Note URL template is not configured.');
+  }
+
+  window.open(
+    MAJOM_NOTE_URL_TEMPLATE.replace('{noteId}', encodeURIComponent(noteId)),
+    '_blank',
+    'noopener',
+  );
 }
 
 async function renderAuthenticated(account) {

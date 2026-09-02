@@ -105,6 +105,18 @@ export function getQuestionDetailPresentation(
   }
 
   if (workflow.status === WORKFLOW_STATUS.CLOSED) {
+    const answerNoteId = latestRun?.answer_note_id ?? null;
+    if (answerNoteId) {
+      return {
+        state: DETAIL_STATE.ANSWER_SAVED,
+        sectionLabel: 'Answer',
+        title: 'Answer saved',
+        answerNoteId,
+        contextMode: DETAIL_CONTEXT_MODE.HIDDEN,
+        primaryAction: { action: 'open-answer-note', label: 'Open in Notes' },
+      };
+    }
+
     const answer = latestRun?.answer ?? null;
     return {
       state: answer && viewMode === DETAIL_VIEW_MODE.ANSWER

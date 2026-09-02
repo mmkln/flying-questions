@@ -113,3 +113,17 @@ test('switches a saved answer into its local reader mode', () => {
     DETAIL_STATE.ANSWER,
   );
 });
+
+test('opens a Majom Note instead of rendering a remote answer as a thought', () => {
+  const question = questionWith('closed', {
+    answer_note_id: 'note-id',
+  });
+  const presentation = getQuestionDetailPresentation(question);
+
+  assert.equal(presentation.state, DETAIL_STATE.ANSWER_SAVED);
+  assert.equal(presentation.answerNoteId, 'note-id');
+  assert.deepEqual(presentation.primaryAction, {
+    action: 'open-answer-note',
+    label: 'Open in Notes',
+  });
+});
