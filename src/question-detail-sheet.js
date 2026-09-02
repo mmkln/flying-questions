@@ -205,7 +205,7 @@ export function createQuestionDetailSheet(
     switch (presentation.state) {
       case DETAIL_STATE.READY_FOR_RESEARCH:
         setPrimaryAction(onQueue
-          ? { action: 'queue', label: 'Research with AI' }
+          ? { action: 'queue', label: 'Research' }
           : undefined);
         break;
       case DETAIL_STATE.DRAFT_PREVIEW:

@@ -1,4 +1,4 @@
-import { getLatestRun, getWorkflowLabel, WORKFLOW_STATUS } from './question-workflow.js';
+import { getLatestRun, WORKFLOW_STATUS } from './question-workflow.js';
 
 export const DETAIL_VIEW_MODE = Object.freeze({
   OVERVIEW: 'overview',
@@ -26,23 +26,23 @@ export function getQuestionDetailPresentation(
   if (!workflow) {
     return {
       state: DETAIL_STATE.READY_FOR_RESEARCH,
-      title: 'Research with AI',
-      description: 'Creates a draft. Nothing is saved as an answer yet.',
+      title: 'Create a research draft',
+      description: 'Review it before saving anything as an answer.',
     };
   }
 
   if (workflow.status === WORKFLOW_STATUS.QUEUED) {
     return {
       state: DETAIL_STATE.QUEUED,
-      title: getWorkflowLabel(workflow),
-      description: 'This question is waiting in the research queue.',
+      title: 'Research requested',
+      description: 'A draft will appear here when it is ready.',
     };
   }
 
   if (workflow.status === WORKFLOW_STATUS.IN_PROGRESS) {
     return {
       state: DETAIL_STATE.IN_PROGRESS,
-      title: getWorkflowLabel(workflow),
+      title: 'Preparing a draft',
       description: 'You can close this sheet while research continues.',
     };
   }
@@ -52,7 +52,7 @@ export function getQuestionDetailPresentation(
       state: viewMode === DETAIL_VIEW_MODE.REVIEW_DRAFT
         ? DETAIL_STATE.REVIEW_DRAFT
         : DETAIL_STATE.DRAFT_PREVIEW,
-      title: getWorkflowLabel(workflow),
+      title: 'Draft ready',
       draft: latestRun.draft,
       runId: latestRun.id,
     };
@@ -64,10 +64,10 @@ export function getQuestionDetailPresentation(
       state: answer && viewMode === DETAIL_VIEW_MODE.ANSWER
         ? DETAIL_STATE.ANSWER
         : DETAIL_STATE.ANSWER_SAVED,
-      title: getWorkflowLabel(workflow),
+      title: 'Answer saved',
       answer,
     };
   }
 
-  return { state: DETAIL_STATE.QUEUED, title: getWorkflowLabel(workflow) };
+  return { state: DETAIL_STATE.QUEUED, title: 'Research requested' };
 }

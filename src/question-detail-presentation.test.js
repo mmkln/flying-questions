@@ -19,18 +19,21 @@ test('presents an unqueued question as ready for research', () => {
   const presentation = getQuestionDetailPresentation(questionWith(null));
 
   assert.equal(presentation.state, DETAIL_STATE.READY_FOR_RESEARCH);
-  assert.match(presentation.description, /Nothing is saved/);
+  assert.equal(presentation.title, 'Create a research draft');
+  assert.equal(
+    presentation.description,
+    'Review it before saving anything as an answer.',
+  );
 });
 
 test('presents queued and in-progress workflow states without a draft', () => {
-  assert.equal(
-    getQuestionDetailPresentation(questionWith('queued')).state,
-    DETAIL_STATE.QUEUED,
-  );
-  assert.equal(
-    getQuestionDetailPresentation(questionWith('in_progress')).state,
-    DETAIL_STATE.IN_PROGRESS,
-  );
+  const queued = getQuestionDetailPresentation(questionWith('queued'));
+  const inProgress = getQuestionDetailPresentation(questionWith('in_progress'));
+
+  assert.equal(queued.state, DETAIL_STATE.QUEUED);
+  assert.equal(queued.title, 'Research requested');
+  assert.equal(inProgress.state, DETAIL_STATE.IN_PROGRESS);
+  assert.equal(inProgress.title, 'Preparing a draft');
 });
 
 test('switches a ready draft between preview and review modes', () => {
@@ -43,6 +46,7 @@ test('switches a ready draft between preview and review modes', () => {
     getQuestionDetailPresentation(question).state,
     DETAIL_STATE.DRAFT_PREVIEW,
   );
+  assert.equal(getQuestionDetailPresentation(question).title, 'Draft ready');
   assert.equal(
     getQuestionDetailPresentation(question, DETAIL_VIEW_MODE.REVIEW_DRAFT).state,
     DETAIL_STATE.REVIEW_DRAFT,
@@ -58,6 +62,7 @@ test('switches a saved answer into its local reader mode', () => {
     getQuestionDetailPresentation(question).state,
     DETAIL_STATE.ANSWER_SAVED,
   );
+  assert.equal(getQuestionDetailPresentation(question).title, 'Answer saved');
   assert.equal(
     getQuestionDetailPresentation(question, DETAIL_VIEW_MODE.ANSWER).state,
     DETAIL_STATE.ANSWER,
