@@ -12,7 +12,11 @@ export function formatQuestionDate(value) {
   }).format(date);
 }
 
-function createQuestionRow(question, { onSelect } = {}) {
+export function isQuestionSelected(question, selectedQuestionId) {
+  return question?.id === selectedQuestionId;
+}
+
+function createQuestionRow(question, { onSelect, selectedQuestionId } = {}) {
   const article = document.createElement('article');
   const button = document.createElement('button');
   const icon = document.createElement('span');
@@ -25,6 +29,9 @@ function createQuestionRow(question, { onSelect } = {}) {
   article.className = 'question-item';
   button.className = 'question-row';
   button.type = 'button';
+  const isSelected = isQuestionSelected(question, selectedQuestionId);
+  button.classList.toggle('is-selected', isSelected);
+  if (isSelected) button.setAttribute('aria-current', 'true');
   button.addEventListener('click', () => onSelect?.(question));
   icon.className = 'question-icon';
   icon.setAttribute('aria-hidden', 'true');
@@ -75,6 +82,7 @@ export function renderQuestionsList(
     allCount = questions.length,
     anchoredCount = 0,
     onFilterChange,
+    selectedQuestionId = null,
   } = {},
 ) {
   container.replaceChildren();
@@ -101,7 +109,7 @@ export function renderQuestionsList(
   const list = document.createElement('div');
   list.className = 'questions-list';
   questions.forEach((question) => {
-    list.append(createQuestionRow(question, { onSelect }));
+    list.append(createQuestionRow(question, { onSelect, selectedQuestionId }));
   });
   container.append(list);
 }

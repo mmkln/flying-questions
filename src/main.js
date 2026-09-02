@@ -14,8 +14,9 @@ import {
   setQuestionAnchor,
   updateQuestionText,
 } from './questions-api.js';
-import { createQuestionDetailSheet } from './question-detail-sheet.js';
+import { createContextMenu } from './context-menu.js';
 import { createQuestionEditor } from './question-editor.js';
+import { createQuestionInspector } from './question-inspector.js';
 import { renderQuestionsList } from './questions-list.js';
 import {
   ThemeMode,
@@ -29,24 +30,35 @@ const THEME_STORAGE_KEY = 'flying-questions:theme:v1';
 const systemThemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
 const app = document.querySelector('#app');
 const themeButton = document.querySelector('#theme-button');
-let questionDetailSheet = null;
+let questionInspector = null;
+let selectedQuestionId = null;
 const questionEditor = createQuestionEditor({
   onSave: persistQuestion,
   onSaved(question) {
-    questionDetailSheet?.open(question);
+    selectedQuestionId = question.id;
+    questionInspector?.open(question);
+    renderQuestions();
   },
   onCancel(session) {
-    if (session.mode === 'edit') questionDetailSheet?.open(session.question);
+    if (session.mode !== 'edit') return;
+
+    selectedQuestionId = session.question.id;
+    questionInspector?.open(session.question);
+    renderQuestions();
   },
 });
-questionDetailSheet = createQuestionDetailSheet({
+questionInspector = createQuestionInspector({
   onToggleAnchor: toggleQuestionAnchor,
   onEdit(question) {
-    questionDetailSheet.close();
+    questionInspector.close();
     questionEditor.openForEdit(question);
   },
   onQueue: queueQuestionForResearch,
   onMaterialize: materializeQuestionAnswer,
+  onClose() {
+    selectedQuestionId = null;
+    renderQuestions();
+  },
 });
 let disposeAccountMenu = () => {};
 let questionsMain = null;
@@ -95,7 +107,7 @@ function createAccountMenu(account, { sessionChecking = false } = {}) {
   const chevron = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   const chevronPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
   const popover = document.createElement('div');
-  let isOpen = false;
+  let menuController = null;
 
   menu.className = 'account-menu';
   trigger.className = 'account-trigger';
@@ -119,14 +131,6 @@ function createAccountMenu(account, { sessionChecking = false } = {}) {
   popover.className = 'account-popover';
   popover.setAttribute('role', 'menu');
   popover.hidden = true;
-
-  function closeMenu({ restoreFocus = false } = {}) {
-    if (!isOpen) return;
-    isOpen = false;
-    popover.hidden = true;
-    trigger.setAttribute('aria-expanded', 'false');
-    if (restoreFocus) trigger.focus();
-  }
 
   if (sessionChecking) {
     label.textContent = 'Checking…';
@@ -187,42 +191,32 @@ function createAccountMenu(account, { sessionChecking = false } = {}) {
       signOutButton,
     );
 
-    trigger.addEventListener('click', () => {
-      isOpen = !isOpen;
-      popover.hidden = !isOpen;
-      trigger.setAttribute('aria-expanded', String(isOpen));
-      if (isOpen) switchAccountButton.focus();
+    menuController = createContextMenu({
+      container: menu,
+      trigger,
+      menu: popover,
+      onOpen() {
+        switchAccountButton.focus();
+      },
     });
     switchAccountButton.addEventListener('click', () => {
-      closeMenu();
+      menuController.close();
       beginLogin({ switchAccount: true });
     });
     signOutButton.addEventListener('click', async () => {
-      closeMenu();
+      menuController.close();
       await signOut();
       renderSignedOut();
     });
   }
 
-  const handlePointerDown = (event) => {
-    if (isOpen && !menu.contains(event.target)) closeMenu();
-  };
-  const handleKeyDown = (event) => {
-    if (event.key !== 'Escape' || !isOpen) return;
-    event.preventDefault();
-    closeMenu({ restoreFocus: true });
-  };
-
-  document.addEventListener('pointerdown', handlePointerDown);
-  document.addEventListener('keydown', handleKeyDown);
   trigger.append(avatar, label, chevron);
   menu.append(trigger, popover);
 
   return {
     menu,
     dispose() {
-      document.removeEventListener('pointerdown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
+      menuController?.dispose();
     },
   };
 }
@@ -239,9 +233,23 @@ function createShell({ account = null, sessionChecking = false } = {}) {
   title.textContent = 'Questions';
   main.className = 'app-main';
 
+  if (account) {
+    const workspace = document.createElement('div');
+    const listPane = document.createElement('section');
+
+    workspace.className = 'questions-workspace';
+    listPane.className = 'questions-list-pane';
+    workspace.append(listPane, questionInspector.element);
+    main.append(workspace);
+    shell.append(title, main);
+    const elements = [shell, accountMenu.menu, createNewQuestionButton()];
+    app.replaceChildren(...elements);
+    disposeAccountMenu = accountMenu.dispose;
+    return listPane;
+  }
+
   shell.append(title, main);
   const elements = [shell, accountMenu.menu];
-  if (account) elements.push(createNewQuestionButton());
   app.replaceChildren(...elements);
   disposeAccountMenu = accountMenu.dispose;
   return main;
@@ -267,6 +275,8 @@ function createNewQuestionButton() {
 }
 
 function renderSignedOut(message = 'Sign in to view your questions.') {
+  selectedQuestionId = null;
+  questionInspector?.close();
   const main = createShell();
   renderLoading(main, message);
 }
@@ -306,12 +316,15 @@ function renderQuestions() {
     activeFilter,
     allCount: questions.length,
     anchoredCount,
+    selectedQuestionId,
     onFilterChange(nextFilter) {
       activeFilter = nextFilter;
       renderQuestions();
     },
     onSelect(question) {
-      questionDetailSheet.open(question);
+      selectedQuestionId = question.id;
+      questionInspector.open(question);
+      renderQuestions();
     },
   });
 }
