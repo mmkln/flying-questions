@@ -14,6 +14,10 @@ import {
   setQuestionAnchor,
   updateQuestionText,
 } from './questions-api.js';
+import {
+  loadRelatedThoughtReferences,
+  searchThoughtReferences,
+} from './thoughts-api.js';
 import { createContextMenu } from './context-menu.js';
 import { createQuestionEditor } from './question-editor.js';
 import { createQuestionInspector } from './question-inspector.js';
@@ -60,6 +64,12 @@ questionInspector = createQuestionInspector({
   },
   onQueue: queueQuestionForResearch,
   onMaterialize: materializeQuestionAnswer,
+  onLoadRelatedThoughts(questionId) {
+    return loadRelatedThoughtReferences(API_URL, getAccessToken(), questionId);
+  },
+  onSearchThoughts(query) {
+    return searchThoughtReferences(API_URL, getAccessToken(), query);
+  },
   onClose() {
     selectedQuestionId = null;
     renderQuestions();
@@ -398,13 +408,12 @@ async function persistQuestion(draft) {
   return mergedQuestion;
 }
 
-async function queueQuestionForResearch(question, researchNote) {
+async function queueQuestionForResearch(question, researchContext) {
   const updatedQuestion = await queueQuestion(
     API_URL,
     getAccessToken(),
     question.id,
-    undefined,
-    researchNote,
+    { researchContext },
   );
   const mergedQuestion = replaceQuestion(updatedQuestion);
   renderQuestions();

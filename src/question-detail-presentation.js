@@ -1,4 +1,5 @@
 import { getLatestRun, WORKFLOW_STATUS } from './question-workflow.js';
+import { hasResearchContext } from './research-context.js';
 
 export const DETAIL_VIEW_MODE = Object.freeze({
   OVERVIEW: 'overview',
@@ -23,8 +24,11 @@ export const DETAIL_CONTEXT_MODE = Object.freeze({
   SUMMARY: 'summary',
 });
 
-function hasResearchContext(question) {
-  return Boolean(question?.workflow?.research_note?.trim());
+function questionHasResearchContext(question) {
+  return hasResearchContext({
+    note: question?.workflow?.research_note,
+    thoughts: question?.workflow?.context_thoughts,
+  });
 }
 
 export function getQuestionDetailPresentation(
@@ -51,7 +55,7 @@ export function getQuestionDetailPresentation(
       sectionLabel: 'Research',
       title: 'Research requested',
       description: 'A draft will appear here when it is ready.',
-      contextMode: hasResearchContext(question)
+      contextMode: questionHasResearchContext(question)
         ? DETAIL_CONTEXT_MODE.SUMMARY
         : DETAIL_CONTEXT_MODE.HIDDEN,
     };
@@ -63,7 +67,7 @@ export function getQuestionDetailPresentation(
       sectionLabel: 'Research',
       title: 'Preparing a draft',
       description: 'You can close this sheet while research continues.',
-      contextMode: hasResearchContext(question)
+      contextMode: questionHasResearchContext(question)
         ? DETAIL_CONTEXT_MODE.SUMMARY
         : DETAIL_CONTEXT_MODE.HIDDEN,
     };
@@ -91,7 +95,7 @@ export function getQuestionDetailPresentation(
       runId: latestRun.id,
       contextMode: viewMode === DETAIL_VIEW_MODE.REVIEW_DRAFT
         ? DETAIL_CONTEXT_MODE.HIDDEN
-        : hasResearchContext(question)
+        : questionHasResearchContext(question)
           ? DETAIL_CONTEXT_MODE.SUMMARY
           : DETAIL_CONTEXT_MODE.HIDDEN,
       primaryAction: viewMode === DETAIL_VIEW_MODE.REVIEW_DRAFT

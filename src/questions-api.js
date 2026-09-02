@@ -56,11 +56,23 @@ export async function loadQuestions(apiUrl, accessToken) {
   return payload;
 }
 
-export async function queueQuestion(apiUrl, accessToken, questionId, priority, researchNote) {
+export async function queueQuestion(
+  apiUrl,
+  accessToken,
+  questionId,
+  { priority, researchContext } = {},
+) {
   const body = {};
 
   if (Number.isInteger(priority)) body.priority = priority;
-  if (typeof researchNote === 'string') body.research_note = researchNote;
+  if (researchContext) {
+    body.research_note = typeof researchContext.note === 'string'
+      ? researchContext.note
+      : '';
+    body.context_thought_ids = Array.isArray(researchContext.thoughts)
+      ? researchContext.thoughts.map(({ id }) => id).filter(Boolean)
+      : [];
+  }
   const response = await fetch(getQuestionQueueUrl(apiUrl, questionId), {
     method: 'POST',
     headers: {

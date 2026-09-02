@@ -13,6 +13,9 @@ import {
   getQuestionDetailPresentation,
 } from './question-detail-presentation.js';
 import { formatQuestionDate } from './questions-list.js';
+import { createResearchContextEditor } from './research-context-editor.js';
+import { researchContextFromWorkflow } from './research-context.js';
+import { createThoughtPicker } from './thought-picker.js';
 
 function firstLine(value) {
   return String(value || '')
@@ -36,6 +39,8 @@ function createQuestionDetailContent(
     onEdit,
     onQueue,
     onMaterialize,
+    onLoadRelatedThoughts,
+    onSearchThoughts,
     onRequestClose,
   } = {},
 ) {
@@ -59,12 +64,6 @@ function createQuestionDetailContent(
   const activityLabel = document.createElement('p');
   const activityTitle = document.createElement('h3');
   const activityDescription = document.createElement('p');
-  const brief = document.createElement('section');
-  const briefLabel = document.createElement('p');
-  const briefToggle = document.createElement('button');
-  const briefComposer = document.createElement('div');
-  const briefInput = document.createElement('textarea');
-  const briefSummary = document.createElement('p');
   const preview = document.createElement('p');
   const reader = document.createElement('p');
   const status = document.createElement('p');
@@ -77,9 +76,8 @@ function createQuestionDetailContent(
   let isMobile = false;
   let isUpdatingAnchor = false;
   let isUpdatingWorkflow = false;
-  let briefQuestionId = null;
-  let researchNoteDraft = '';
-  let isBriefExpanded = false;
+  let contextQuestionId = null;
+  let contextSignature = '';
 
   element.className = 'question-inspector-content';
   header.className = 'question-inspector-header';
@@ -123,20 +121,26 @@ function createQuestionDetailContent(
   activityTitle.className = 'question-inspector-activity-title';
   activityDescription.className = 'question-inspector-activity-description';
 
-  brief.className = 'question-inspector-brief';
-  briefLabel.className = 'question-inspector-section-label';
-  briefLabel.textContent = 'Research context';
-  briefToggle.className = 'question-inspector-brief-toggle';
-  briefToggle.type = 'button';
-  briefComposer.className = 'question-inspector-brief-composer';
-  briefInput.className = 'question-inspector-brief-input';
-  briefInput.placeholder = 'Context, constraints, links, or preferred format…';
-  briefInput.maxLength = 5000;
-  briefInput.rows = 3;
-  briefInput.setAttribute('aria-label', 'Context for AI');
-  briefSummary.className = 'question-inspector-brief-summary';
-  briefComposer.append(briefInput);
-  brief.append(briefLabel, briefToggle, briefComposer, briefSummary);
+  let thoughtPicker = null;
+  const researchContext = createResearchContextEditor({
+    onAddThoughts({ selectedThoughts }) {
+      void thoughtPicker?.open({
+        questionId: currentQuestion?.id,
+        selectedThoughts,
+      });
+    },
+  });
+  thoughtPicker = createThoughtPicker({
+    loadSuggestions(questionId) {
+      return onLoadRelatedThoughts?.(questionId) || [];
+    },
+    searchThoughts(query) {
+      return onSearchThoughts?.(query) || [];
+    },
+    onDone(thoughts) {
+      researchContext.setThoughts(thoughts);
+    },
+  });
 
   preview.className = 'question-inspector-preview';
   reader.className = 'question-inspector-reader';
@@ -156,7 +160,7 @@ function createQuestionDetailContent(
     activityLabel,
     activityTitle,
     activityDescription,
-    brief,
+    researchContext.element,
     preview,
     reader,
     status,
@@ -195,9 +199,10 @@ function createQuestionDetailContent(
   function renderEmpty() {
     currentQuestion = null;
     viewMode = DETAIL_VIEW_MODE.OVERVIEW;
-    briefQuestionId = null;
-    researchNoteDraft = '';
-    isBriefExpanded = false;
+    contextQuestionId = null;
+    contextSignature = '';
+    researchContext.setValue({});
+    researchContext.setMode(DETAIL_CONTEXT_MODE.HIDDEN);
     element.classList.add('is-empty');
     header.hidden = true;
     activity.hidden = true;
@@ -213,12 +218,6 @@ function createQuestionDetailContent(
     }
 
     currentQuestion = question;
-    if (briefQuestionId !== question.id) {
-      briefQuestionId = question.id;
-      researchNoteDraft = question.workflow?.research_note || '';
-      isBriefExpanded = false;
-    }
-
     const presentation = getQuestionDetailPresentation(question, viewMode);
     const isOverview = viewMode === DETAIL_VIEW_MODE.OVERVIEW;
     const isDraftReader = presentation.state === DETAIL_STATE.REVIEW_DRAFT;
@@ -259,25 +258,17 @@ function createQuestionDetailContent(
     const contextMode = isReader
       ? DETAIL_CONTEXT_MODE.HIDDEN
       : presentation.contextMode ?? DETAIL_CONTEXT_MODE.HIDDEN;
-    const canAddBrief = contextMode === DETAIL_CONTEXT_MODE.EDITABLE;
-    const savedBrief = question.workflow?.research_note?.trim() || '';
-    const showBriefSummary = contextMode === DETAIL_CONTEXT_MODE.SUMMARY
-      && Boolean(savedBrief);
-
-    brief.hidden = contextMode === DETAIL_CONTEXT_MODE.HIDDEN
-      || contextMode === DETAIL_CONTEXT_MODE.SUMMARY && !showBriefSummary;
-    briefLabel.hidden = !isBriefExpanded && !showBriefSummary;
-    briefToggle.hidden = !canAddBrief;
-    briefToggle.textContent = isBriefExpanded
-      ? 'Hide context'
-      : savedBrief
-        ? 'Edit context for AI'
-        : 'Add context for AI';
-    briefToggle.setAttribute('aria-expanded', String(isBriefExpanded));
-    briefComposer.hidden = !canAddBrief || !isBriefExpanded;
-    briefInput.value = researchNoteDraft;
-    briefSummary.hidden = !showBriefSummary;
-    briefSummary.textContent = savedBrief;
+    const serverContext = researchContextFromWorkflow(question.workflow);
+    const nextContextSignature = JSON.stringify(serverContext);
+    if (
+      contextQuestionId !== question.id
+      || contextSignature !== nextContextSignature
+    ) {
+      contextQuestionId = question.id;
+      contextSignature = nextContextSignature;
+      researchContext.setValue(serverContext);
+    }
+    researchContext.setMode(contextMode);
 
     const showsDraftPreview = presentation.state === DETAIL_STATE.DRAFT_PREVIEW;
     const showsAnswerPreview = presentation.state === DETAIL_STATE.ANSWER_SAVED
@@ -341,18 +332,6 @@ function createQuestionDetailContent(
     }
   });
 
-  briefToggle.addEventListener('click', () => {
-    if (!currentQuestion) return;
-
-    isBriefExpanded = !isBriefExpanded;
-    renderQuestion(currentQuestion);
-    if (isBriefExpanded) requestAnimationFrame(() => briefInput.focus());
-  });
-
-  briefInput.addEventListener('input', () => {
-    researchNoteDraft = briefInput.value;
-  });
-
   backButton.addEventListener('click', () => {
     if (!currentQuestion) return;
 
@@ -389,7 +368,7 @@ function createQuestionDetailContent(
 
     try {
       const updatedQuestion = action === 'queue'
-        ? await onQueue?.(currentQuestion, researchNoteDraft.trim())
+        ? await onQueue?.(currentQuestion, researchContext.getValue())
         : await onMaterialize?.(
           currentQuestion,
           currentQuestion.workflow?.latest_run?.id,
@@ -426,6 +405,8 @@ export function createQuestionInspector(
     onEdit,
     onQueue,
     onMaterialize,
+    onLoadRelatedThoughts,
+    onSearchThoughts,
     onClose,
   } = {},
 ) {
@@ -445,6 +426,8 @@ export function createQuestionInspector(
     onEdit,
     onQueue,
     onMaterialize,
+    onLoadRelatedThoughts,
+    onSearchThoughts,
     onRequestClose: close,
   });
 

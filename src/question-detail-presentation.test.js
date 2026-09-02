@@ -54,6 +54,20 @@ test('shows saved research context only as a summary after queuing', () => {
   assert.equal(presentation.primaryAction, undefined);
 });
 
+test('shows selected thoughts as research context even without a written note', () => {
+  const question = questionWith('queued');
+  question.workflow.context_thoughts = [{
+    id: 'thought-id',
+    text: 'A related observation.',
+    kind: 'observation',
+  }];
+
+  assert.equal(
+    getQuestionDetailPresentation(question).contextMode,
+    DETAIL_CONTEXT_MODE.SUMMARY,
+  );
+});
+
 test('lets a failed question be retried without losing its context', () => {
   const presentation = getQuestionDetailPresentation(questionWith('failed'));
 

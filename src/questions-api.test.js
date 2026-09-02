@@ -45,8 +45,13 @@ test('queues a question without altering its metadata', async (t) => {
     'http://127.0.0.1:8001/api/v1',
     'access-token',
     'question-id',
-    3,
-    'Use primary sources.',
+    {
+      priority: 3,
+      researchContext: {
+        note: 'Use primary sources.',
+        thoughts: [{ id: 'source-one' }, { id: 'source-two' }],
+      },
+    },
   );
 
   assert.equal(request.url, 'http://127.0.0.1:8001/api/v1/questions/question-id/queue/');
@@ -54,6 +59,7 @@ test('queues a question without altering its metadata', async (t) => {
   assert.deepEqual(JSON.parse(request.options.body), {
     priority: 3,
     research_note: 'Use primary sources.',
+    context_thought_ids: ['source-one', 'source-two'],
   });
 });
 
