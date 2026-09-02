@@ -7,6 +7,7 @@ import {
   createQuestionIcon,
 } from './icons.js';
 import {
+  DETAIL_CONTEXT_MODE,
   DETAIL_STATE,
   DETAIL_VIEW_MODE,
   getQuestionDetailPresentation,
@@ -246,7 +247,7 @@ function createQuestionDetailContent(
     editItem.hidden = !onEdit;
 
     activityLabel.hidden = isReader;
-    activityLabel.textContent = 'Research';
+    activityLabel.textContent = presentation.sectionLabel || 'Research';
     activityTitle.textContent = isDraftReader
       ? 'Draft'
       : isAnswerReader
@@ -255,15 +256,23 @@ function createQuestionDetailContent(
     activityDescription.textContent = presentation.description || '';
     activityDescription.hidden = isReader || !presentation.description;
 
-    const canAddBrief = isOverview
-      && presentation.state === DETAIL_STATE.READY_FOR_RESEARCH;
+    const contextMode = isReader
+      ? DETAIL_CONTEXT_MODE.HIDDEN
+      : presentation.contextMode ?? DETAIL_CONTEXT_MODE.HIDDEN;
+    const canAddBrief = contextMode === DETAIL_CONTEXT_MODE.EDITABLE;
     const savedBrief = question.workflow?.research_note?.trim() || '';
-    const showBriefSummary = isOverview && !canAddBrief && Boolean(savedBrief);
+    const showBriefSummary = contextMode === DETAIL_CONTEXT_MODE.SUMMARY
+      && Boolean(savedBrief);
 
-    brief.hidden = !canAddBrief && !showBriefSummary;
+    brief.hidden = contextMode === DETAIL_CONTEXT_MODE.HIDDEN
+      || contextMode === DETAIL_CONTEXT_MODE.SUMMARY && !showBriefSummary;
     briefLabel.hidden = !isBriefExpanded && !showBriefSummary;
     briefToggle.hidden = !canAddBrief;
-    briefToggle.textContent = isBriefExpanded ? 'Hide context' : 'Add context for AI';
+    briefToggle.textContent = isBriefExpanded
+      ? 'Hide context'
+      : savedBrief
+        ? 'Edit context for AI'
+        : 'Add context for AI';
     briefToggle.setAttribute('aria-expanded', String(isBriefExpanded));
     briefComposer.hidden = !canAddBrief || !isBriefExpanded;
     briefInput.value = researchNoteDraft;
@@ -287,26 +296,14 @@ function createQuestionDetailContent(
     closeButton.hidden = !isMobile || !isOverview;
     status.hidden = true;
 
-    switch (presentation.state) {
-      case DETAIL_STATE.READY_FOR_RESEARCH:
-        setPrimaryAction(onQueue ? { action: 'queue', label: 'Research' } : undefined);
-        break;
-      case DETAIL_STATE.DRAFT_PREVIEW:
-        setPrimaryAction({ action: 'review-draft', label: 'Review draft' });
-        break;
-      case DETAIL_STATE.REVIEW_DRAFT:
-        setPrimaryAction(onMaterialize
-          ? { action: 'create-answer', label: 'Save as answer' }
-          : undefined);
-        break;
-      case DETAIL_STATE.ANSWER_SAVED:
-        setPrimaryAction(presentation.answer
-          ? { action: 'open-answer', label: 'Open answer' }
-          : undefined);
-        break;
-      default:
-        setPrimaryAction();
-    }
+    const action = presentation.primaryAction;
+    const canRunAction = action && (
+      action.action === 'queue' && onQueue
+      || action.action === 'create-answer' && onMaterialize
+      || action.action === 'review-draft'
+      || action.action === 'open-answer'
+    );
+    setPrimaryAction(canRunAction ? action : undefined);
 
     actionRow.hidden = primaryAction.hidden && backButton.hidden && closeButton.hidden;
   }
