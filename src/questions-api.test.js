@@ -46,11 +46,15 @@ test('queues a question without altering its metadata', async (t) => {
     'access-token',
     'question-id',
     3,
+    'Use primary sources.',
   );
 
   assert.equal(request.url, 'http://127.0.0.1:8001/api/v1/questions/question-id/queue/');
   assert.equal(request.options.method, 'POST');
-  assert.deepEqual(JSON.parse(request.options.body), { priority: 3 });
+  assert.deepEqual(JSON.parse(request.options.body), {
+    priority: 3,
+    research_note: 'Use primary sources.',
+  });
 });
 
 test('builds the revision-safe thought sync endpoint', () => {

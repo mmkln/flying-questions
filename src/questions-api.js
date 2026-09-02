@@ -56,8 +56,11 @@ export async function loadQuestions(apiUrl, accessToken) {
   return payload;
 }
 
-export async function queueQuestion(apiUrl, accessToken, questionId, priority) {
-  const body = Number.isInteger(priority) ? { priority } : {};
+export async function queueQuestion(apiUrl, accessToken, questionId, priority, researchNote) {
+  const body = {};
+
+  if (Number.isInteger(priority)) body.priority = priority;
+  if (typeof researchNote === 'string') body.research_note = researchNote;
   const response = await fetch(getQuestionQueueUrl(apiUrl, questionId), {
     method: 'POST',
     headers: {

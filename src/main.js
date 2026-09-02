@@ -373,11 +373,13 @@ async function persistQuestion(draft) {
   return mergedQuestion;
 }
 
-async function queueQuestionForResearch(question) {
+async function queueQuestionForResearch(question, researchNote) {
   const updatedQuestion = await queueQuestion(
     API_URL,
     getAccessToken(),
     question.id,
+    undefined,
+    researchNote,
   );
   const mergedQuestion = replaceQuestion(updatedQuestion);
   renderQuestions();

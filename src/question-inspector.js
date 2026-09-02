@@ -50,11 +50,18 @@ function createQuestionDetailContent(
   const menu = document.createElement('div');
   const editItem = createMenuItem('Edit question');
   const anchorItem = createMenuItem('Add to anchors');
+  const body = document.createElement('div');
   const emptyState = document.createElement('p');
   const activity = document.createElement('section');
   const activityLabel = document.createElement('p');
   const activityTitle = document.createElement('h3');
   const activityDescription = document.createElement('p');
+  const brief = document.createElement('section');
+  const briefLabel = document.createElement('p');
+  const briefToggle = document.createElement('button');
+  const briefComposer = document.createElement('div');
+  const briefInput = document.createElement('textarea');
+  const briefSummary = document.createElement('p');
   const preview = document.createElement('p');
   const reader = document.createElement('p');
   const status = document.createElement('p');
@@ -67,6 +74,9 @@ function createQuestionDetailContent(
   let isMobile = false;
   let isUpdatingAnchor = false;
   let isUpdatingWorkflow = false;
+  let briefQuestionId = null;
+  let researchNoteDraft = '';
+  let isBriefExpanded = false;
 
   element.className = 'question-inspector-content';
   header.className = 'question-inspector-header';
@@ -97,11 +107,28 @@ function createQuestionDetailContent(
 
   emptyState.className = 'question-inspector-empty';
   emptyState.textContent = 'Select a question to view its details and research.';
+  body.className = 'question-inspector-body';
 
   activity.className = 'question-inspector-activity';
   activityLabel.className = 'question-inspector-section-label';
   activityTitle.className = 'question-inspector-activity-title';
   activityDescription.className = 'question-inspector-activity-description';
+
+  brief.className = 'question-inspector-brief';
+  briefLabel.className = 'question-inspector-section-label';
+  briefLabel.textContent = 'Research context';
+  briefToggle.className = 'question-inspector-brief-toggle';
+  briefToggle.type = 'button';
+  briefComposer.className = 'question-inspector-brief-composer';
+  briefInput.className = 'question-inspector-brief-input';
+  briefInput.placeholder = 'Context, constraints, links, or preferred format…';
+  briefInput.maxLength = 5000;
+  briefInput.rows = 3;
+  briefInput.setAttribute('aria-label', 'Context for AI');
+  briefSummary.className = 'question-inspector-brief-summary';
+  briefComposer.append(briefInput);
+  brief.append(briefLabel, briefToggle, briefComposer, briefSummary);
+
   preview.className = 'question-inspector-preview';
   reader.className = 'question-inspector-reader';
   status.className = 'question-inspector-status';
@@ -120,13 +147,15 @@ function createQuestionDetailContent(
     activityLabel,
     activityTitle,
     activityDescription,
+    brief,
     preview,
     reader,
     status,
     actionRow,
   );
   actionRow.append(backButton, closeButton, primaryAction);
-  element.append(header, emptyState, activity);
+  body.append(emptyState, activity);
+  element.append(header, body);
 
   const contextMenu = createContextMenu({
     container: menuContainer,
@@ -157,6 +186,9 @@ function createQuestionDetailContent(
   function renderEmpty() {
     currentQuestion = null;
     viewMode = DETAIL_VIEW_MODE.OVERVIEW;
+    briefQuestionId = null;
+    researchNoteDraft = '';
+    isBriefExpanded = false;
     element.classList.add('is-empty');
     header.hidden = true;
     activity.hidden = true;
@@ -172,6 +204,12 @@ function createQuestionDetailContent(
     }
 
     currentQuestion = question;
+    if (briefQuestionId !== question.id) {
+      briefQuestionId = question.id;
+      researchNoteDraft = question.workflow?.research_note || '';
+      isBriefExpanded = false;
+    }
+
     const presentation = getQuestionDetailPresentation(question, viewMode);
     const isOverview = viewMode === DETAIL_VIEW_MODE.OVERVIEW;
     const isDraftReader = presentation.state === DETAIL_STATE.REVIEW_DRAFT;
@@ -200,6 +238,21 @@ function createQuestionDetailContent(
         : presentation.title || '';
     activityDescription.textContent = presentation.description || '';
     activityDescription.hidden = isReader || !presentation.description;
+
+    const canAddBrief = isOverview
+      && presentation.state === DETAIL_STATE.READY_FOR_RESEARCH;
+    const savedBrief = question.workflow?.research_note?.trim() || '';
+    const showBriefSummary = isOverview && !canAddBrief && Boolean(savedBrief);
+
+    brief.hidden = !canAddBrief && !showBriefSummary;
+    briefLabel.hidden = !isBriefExpanded && !showBriefSummary;
+    briefToggle.hidden = !canAddBrief;
+    briefToggle.textContent = isBriefExpanded ? 'Hide context' : 'Add context for AI';
+    briefToggle.setAttribute('aria-expanded', String(isBriefExpanded));
+    briefComposer.hidden = !canAddBrief || !isBriefExpanded;
+    briefInput.value = researchNoteDraft;
+    briefSummary.hidden = !showBriefSummary;
+    briefSummary.textContent = savedBrief;
 
     const showsDraftPreview = presentation.state === DETAIL_STATE.DRAFT_PREVIEW;
     const showsAnswerPreview = presentation.state === DETAIL_STATE.ANSWER_SAVED
@@ -238,6 +291,8 @@ function createQuestionDetailContent(
       default:
         setPrimaryAction();
     }
+
+    actionRow.hidden = primaryAction.hidden && backButton.hidden && closeButton.hidden;
   }
 
   function setMobile(nextIsMobile) {
@@ -272,6 +327,18 @@ function createQuestionDetailContent(
       isUpdatingAnchor = false;
       anchorItem.disabled = false;
     }
+  });
+
+  briefToggle.addEventListener('click', () => {
+    if (!currentQuestion) return;
+
+    isBriefExpanded = !isBriefExpanded;
+    renderQuestion(currentQuestion);
+    if (isBriefExpanded) requestAnimationFrame(() => briefInput.focus());
+  });
+
+  briefInput.addEventListener('input', () => {
+    researchNoteDraft = briefInput.value;
   });
 
   backButton.addEventListener('click', () => {
@@ -310,7 +377,7 @@ function createQuestionDetailContent(
 
     try {
       const updatedQuestion = action === 'queue'
-        ? await onQueue?.(currentQuestion)
+        ? await onQueue?.(currentQuestion, researchNoteDraft.trim())
         : await onMaterialize?.(
           currentQuestion,
           currentQuestion.workflow?.latest_run?.id,

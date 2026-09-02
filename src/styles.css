@@ -278,22 +278,29 @@ h1, h2, p { margin: 0; }
 .status-message.is-error { color: #af3d59; }
 
 .question-inspector {
-  position: sticky;
-  top: 24px;
-  align-self: stretch;
-  min-height: 420px;
+  min-height: 0;
   border-left: 1px solid rgba(86, 67, 143, .14);
 }
 
 .question-inspector-content {
   display: grid;
-  min-height: 420px;
-  align-content: start;
-  gap: 28px;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 20px;
   padding: 4px 0 20px 28px;
 }
 
-.question-inspector-content.is-empty { place-content: center start; }
+.question-inspector-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+}
+
+.question-inspector-content.is-empty .question-inspector-body {
+  display: grid;
+  place-content: center start;
+}
 
 .question-inspector-empty {
   max-width: 250px;
@@ -304,7 +311,7 @@ h1, h2, p { margin: 0; }
 
 .question-inspector-header:not([hidden]),
 .question-inspector-identity,
-.question-inspector-action-row { display: flex; align-items: center; }
+.question-inspector-action-row:not([hidden]) { display: flex; align-items: center; }
 
 .question-inspector-header { justify-content: space-between; gap: 16px; }
 .question-inspector-identity { min-width: 0; gap: 11px; }
@@ -391,6 +398,51 @@ h1, h2, p { margin: 0; }
   font-size: 14px;
   line-height: 1.5;
 }
+.question-inspector-brief {
+  display: grid;
+  max-width: 360px;
+  gap: 8px;
+}
+.question-inspector-brief-toggle {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  color: #6048b1;
+  cursor: pointer;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+}
+.question-inspector-brief-toggle:hover { color: #4f399d; }
+.question-inspector-brief-toggle:focus-visible {
+  outline: 3px solid rgba(112, 85, 197, .2);
+  outline-offset: 2px;
+}
+.question-inspector-brief-composer { display: grid; }
+.question-inspector-brief-input {
+  width: 100%;
+  min-height: 94px;
+  padding: 10px 12px;
+  border: 1px solid rgba(112, 85, 197, .22);
+  border-radius: 12px;
+  color: inherit;
+  background: rgba(112, 85, 197, .05);
+  caret-color: #7055c5;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.question-inspector-brief-input::placeholder { color: #9993aa; }
+.question-inspector-brief-summary {
+  margin: 0;
+  color: #756d88;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .question-inspector-preview {
   max-width: 360px;
   overflow: hidden;
@@ -412,9 +464,14 @@ h1, h2, p { margin: 0; }
 }
 .question-inspector-status { color: #af3d59; font-size: 13px; line-height: 1.4; }
 .question-inspector-action-row {
+  position: sticky;
+  z-index: 1;
+  bottom: 0;
   min-height: 38px;
   gap: 8px;
-  padding-top: 5px;
+  margin: 16px -6px 0 0;
+  padding: 14px 6px 4px 0;
+  background: #f7f6fb;
 }
 .question-inspector-primary,
 .question-inspector-secondary,
@@ -463,16 +520,21 @@ h1, h2, p { margin: 0; }
 }
 .question-detail-dialog::backdrop { background: rgba(30, 24, 48, .28); }
 .question-detail-dialog .question-inspector-content {
+  display: grid;
   max-height: inherit;
   min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
   padding: 22px;
+  overflow: hidden;
+}
+.question-detail-dialog .question-inspector-body {
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 .question-detail-dialog .question-inspector-action-row {
-  position: sticky;
-  bottom: -22px;
-  margin: 6px -22px -22px;
+  margin: 16px -22px 0;
   padding: 14px 22px max(14px, env(safe-area-inset-bottom));
   background: rgba(255, 255, 255, .98);
 }
@@ -584,7 +646,8 @@ html[data-theme="dark"] .question-inspector { border-color: rgba(210, 197, 255, 
 html[data-theme="dark"] .question-inspector-title,
 html[data-theme="dark"] .question-inspector-activity-title,
 html[data-theme="dark"] .question-inspector-preview,
-html[data-theme="dark"] .question-inspector-reader { color: #e1dbee; }
+html[data-theme="dark"] .question-inspector-reader,
+html[data-theme="dark"] .question-inspector-brief-summary { color: #e1dbee; }
 html[data-theme="dark"] .question-inspector-empty,
 html[data-theme="dark"] .question-inspector-activity-description,
 html[data-theme="dark"] .question-inspector-more,
@@ -593,12 +656,62 @@ html[data-theme="dark"] .question-inspector-more:hover { color: #ddd4f3; backgro
 html[data-theme="dark"] .question-inspector-menu-item { color: #d8d1ea; }
 html[data-theme="dark"] .question-inspector-menu-item:hover,
 html[data-theme="dark"] .question-inspector-menu-item:focus-visible { color: #fff; background: rgba(150, 123, 240, .16); }
+html[data-theme="dark"] .question-inspector-brief-input {
+  border-color: rgba(190, 173, 255, .24);
+  background: rgba(150, 123, 240, .1);
+  caret-color: #9d84ef;
+}
+html[data-theme="dark"] .question-inspector-brief-input::placeholder { color: #aaa2bc; }
+html[data-theme="dark"] .question-inspector-brief-toggle { color: #c8b9ff; }
+html[data-theme="dark"] .question-inspector-brief-toggle:hover { color: #e1dbee; }
+html[data-theme="dark"] .question-inspector-action-row { background: #0e0d14; }
 html[data-theme="dark"] .question-detail-dialog .question-inspector-action-row { background: #211e2d; }
 html[data-theme="dark"] .question-editor-textarea { caret-color: #9d84ef; }
 html[data-theme="dark"] .question-editor-textarea::placeholder,
 html[data-theme="dark"] .question-editor-counter { color: #aaa2bc; }
 html[data-theme="dark"] .question-editor-secondary { border-color: rgba(190, 173, 255, .28); color: #c8b9ff; background: rgba(150, 123, 240, .12); }
 html[data-theme="dark"] .question-editor-secondary:hover { background: rgba(150, 123, 240, .2); }
+
+@media (min-width: 901px) {
+  html,
+  body,
+  #app {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .app-shell {
+    height: 100dvh;
+    padding: 96px 0 32px;
+  }
+
+  .app-main,
+  .questions-workspace {
+    min-height: 0;
+    height: 100%;
+  }
+
+  .questions-workspace { align-items: stretch; }
+
+  .questions-list-pane {
+    display: grid;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .questions-list {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .question-inspector {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .question-inspector-content { height: 100%; }
+}
 
 @media (max-width: 900px) {
   .app-shell { width: min(100% - 32px, 760px); }
