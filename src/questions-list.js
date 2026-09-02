@@ -1,5 +1,6 @@
 import { hasAnchor } from './anchors.js';
 import { createAnchorIcon, createQuestionIcon } from './icons.js';
+import { getWorkflowLabel } from './question-workflow.js';
 
 export function formatQuestionDate(value) {
   const date = new Date(value);
@@ -9,16 +10,6 @@ export function formatQuestionDate(value) {
     month: 'short',
     day: 'numeric',
   }).format(date);
-}
-
-function workflowLabel(workflow) {
-  const labels = {
-    queued: 'Queued',
-    in_progress: 'Researching',
-    draft_ready: 'Draft ready',
-    closed: 'Answered',
-  };
-  return labels[workflow?.status] || null;
 }
 
 function createQuestionRow(question, { onSelect } = {}) {
@@ -43,7 +34,7 @@ function createQuestionRow(question, { onSelect } = {}) {
   text.className = 'question-text';
   text.textContent = question.text;
 
-  const label = workflowLabel(question.workflow);
+  const label = getWorkflowLabel(question.workflow, 'list');
   workflow.className = 'question-workflow-status';
   workflow.textContent = label || '';
   workflow.hidden = !label;
