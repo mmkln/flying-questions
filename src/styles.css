@@ -1168,6 +1168,10 @@ html[data-theme="dark"] .question-filter-menu-item.is-active { color: #d9ccff; b
   .app-shell { width: min(100% - 32px, 760px); }
   .questions-workspace { display: block; }
   .question-inspector { display: none; }
+  /* iOS Safari zooms focused text controls below 16px; keep the viewport stable. */
+  .question-search-input,
+  .research-context-note,
+  .thought-picker-search { font-size: 16px; }
   .new-question-button {
     position: fixed;
     z-index: 30;
